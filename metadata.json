@@ -1,6 +1,11 @@
 {
-  "name": "AI Keyboard",
-  "description": "An intelligent AI Keyboard with real-time text and voice translation supporting over 50 languages, customizable themes, smart autocomplete suggestions, and automatic text-to-speech voice outputs.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "name": "Google AI Studio Assistant",
+  "description": "Full-featured Gemini-powered AI Assistant built in Google AI Studio and converted to Native Android APK with offline web bundle and camera support.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
