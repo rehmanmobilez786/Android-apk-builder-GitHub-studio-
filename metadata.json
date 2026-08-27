@@ -1,0 +1,11 @@
+{
+  "name": "Google AI Studio Assistant",
+  "description": "Full-featured Gemini-powered AI Assistant built in Google AI Studio and converted to Native Android APK with offline web bundle and camera support.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
