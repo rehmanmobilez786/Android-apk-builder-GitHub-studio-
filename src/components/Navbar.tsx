@@ -31,6 +31,7 @@ interface NavbarProps {
   onOpenHistory: () => void;
   onStartBuild: () => void;
   onToggleAiChat: () => void;
+  onOpenAiManager?: () => void;
   onNewProject: () => void;
   onSelectTemplate: (templateId: string) => void;
   onToggleAutoSync?: () => void;
@@ -53,6 +54,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenHistory,
   onStartBuild,
   onToggleAiChat,
+  onOpenAiManager,
   onNewProject,
   onSelectTemplate,
   onToggleAutoSync,
@@ -248,6 +250,16 @@ export const Navbar: React.FC<NavbarProps> = ({
           <span className="w-2 h-2 rounded-full bg-emerald-400" />
         </button>
 
+        {/* AI Master Project & GitHub Manager Button */}
+        <button
+          onClick={onOpenAiManager || onToggleAiChat}
+          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border font-bold bg-gradient-to-r from-indigo-950/80 via-purple-950/80 to-slate-900 border-indigo-500/50 text-indigo-200 hover:from-indigo-900 hover:to-purple-900 shadow-sm transition-all shrink-0"
+          title="AI Project & GitHub Master Manager (Auto-Handle Project, Repo & Web Pages)"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+          <span>AI Master ⚡</span>
+        </button>
+
         {/* 1. Upload Source Code Button */}
         <button
           onClick={onOpenUpload}
@@ -356,6 +368,18 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              onClick={() => {
+                if (onOpenAiManager) onOpenAiManager();
+                else onToggleAiChat();
+                setIsMobileMenuOpen(false);
+              }}
+              className="col-span-2 flex items-center justify-center gap-2 p-2.5 rounded-lg border border-indigo-500/80 bg-gradient-to-r from-indigo-950 via-purple-950 to-slate-900 text-indigo-200 font-black text-xs shadow-lg"
+            >
+              <Sparkles className="w-4 h-4 text-indigo-400 animate-pulse" />
+              <span>⚡ AI Master (پورا پراجیکٹ و گٹ ہب آٹو ہینڈل کریں)</span>
+            </button>
+
             <button
               onClick={() => {
                 onOpenUpload();

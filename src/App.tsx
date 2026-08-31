@@ -9,6 +9,7 @@ import { BugFixerModal } from "./components/BugFixerModal";
 import { GitHubModal } from "./components/GitHubModal";
 import { BuildConsole } from "./components/BuildConsole";
 import { AiAssistantDrawer } from "./components/AiAssistantDrawer";
+import { AiProjectManager } from "./components/AiProjectManager";
 import { ProjectHistoryModal } from "./components/ProjectHistoryModal";
 import { WorkflowPipeline } from "./components/WorkflowPipeline";
 
@@ -92,6 +93,7 @@ export default function App() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isBuildOpen, setIsBuildOpen] = useState(false);
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+  const [isAiManagerOpen, setIsAiManagerOpen] = useState(false);
 
   // States
   const [isRepairing, setIsRepairing] = useState(false);
@@ -540,6 +542,7 @@ export default function App() {
           handleStartBuild();
         }}
         onToggleAiChat={() => setIsAiChatOpen(!isAiChatOpen)}
+        onOpenAiManager={() => setIsAiManagerOpen(true)}
         onNewProject={() => handleSelectTemplate("proj-starter")}
         onSelectTemplate={handleSelectTemplate}
         isRepairing={isRepairing}
@@ -845,6 +848,23 @@ export default function App() {
         messages={chatMessages}
         onSendMessage={handleSendMessage}
         isLoading={isChatLoading}
+      />
+
+      <AiProjectManager
+        isOpen={isAiManagerOpen}
+        onClose={() => setIsAiManagerOpen(false)}
+        project={project}
+        githubConfig={githubConfig}
+        onPushGitHub={handleSyncNow}
+        onAutoRepairCode={handleRunAiFix}
+        onStartBuild={handleStartBuild}
+        onOpenUpload={() => setIsUploadOpen(true)}
+        onUpdateFiles={(newFiles) => {
+          setProject((prev) => ({
+            ...prev,
+            files: newFiles,
+          }));
+        }}
       />
     </div>
   );
