@@ -1,13 +1,10 @@
-name: Build Android APK (Installable App)
+name: Build Google AI Studio Android APK
 
 on:
   push:
-    branches: ["main", "master"]
-  pull_request:
-    branches: ["main", "master"]
+    branches: [ "main", "master" ]
   workflow_dispatch:
 
-# Prevents runaway parallel builds & resource exhaustion
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -16,46 +13,45 @@ permissions:
   contents: write
 
 jobs:
-  build-apk:
-    name: Build Android Native APK with Gradle
+  build:
+    name: Assemble Android APK with Gradle & SDK 34
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
-      - name: Checkout Source Code
+      - name: Checkout Google AI Studio Android Project
         uses: actions/checkout@v4
 
-      - name: Set up Java JDK 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
+          distribution: 'temurin'
+          cache: gradle
 
-      - name: Setup Android SDK Tools
+      - name: Setup Android SDK Build-Tools & Platforms
         uses: android-actions/setup-android@v3
 
-      - name: Ensure Gradle Wrapper & Permissions
+      - name: Ensure Gradle Wrapper
         run: |
           if [ ! -f "./gradlew" ]; then
-            echo "Generating Gradle Wrapper..."
             gradle wrapper --gradle-version 8.2 || true
           fi
           chmod +x gradlew || true
 
-      - name: Build Android Debug APK
+      - name: Build Android Debug APK (assembleDebug)
         run: |
           ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Build Android Release APK
+      - name: Build Android Release APK (assembleRelease)
         continue-on-error: true
         run: |
-          ./gradlew assembleRelease --no-daemon --stacktrace || echo "Release build step skipped, using debug APK"
+          ./gradlew assembleRelease --no-daemon --stacktrace || echo "Release skipped"
 
-      - name: Upload APK Artifacts to GitHub Actions
+      - name: Upload Android APK Artifact for Download
         uses: actions/upload-artifact@v4
         with:
-          name: Android-App-Installable-APKs
+          name: google-ai-studio-apk-release
           path: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk
@@ -74,11 +70,9 @@ jobs:
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk
           body: |
-            🚀 **Android APK Cloud Build Complete!**
-            - **Run Number:** #${{ github.run_number }}
+            🚀 **Android APK Ready for Download!**
+            - **Run:** #${{ github.run_number }}
             - **Commit:** ${{ github.sha }}
-            - **Target Android SDK:** 34
-            - 📲 **Download Instructions:** Download `app-debug.apk` directly to your Android device and tap Install!
+            - Download `app-debug.apk` directly on your phone and install!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
