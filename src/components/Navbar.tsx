@@ -19,15 +19,17 @@ import {
   Send,
   FileCode,
 } from "lucide-react";
-import { AndroidProject, ValidationReport } from "../types";
+import { AndroidProject, ValidationReport, GitLabConfig } from "../types";
 
 interface NavbarProps {
   project: AndroidProject;
   validationReport: ValidationReport;
   githubConfig: { owner: string; repo: string; autoSync: boolean; token?: string };
+  gitlabConfig?: GitLabConfig;
   onOpenUpload: () => void;
   onOpenBugFixer: () => void;
   onOpenGitHub: () => void;
+  onOpenGitLab?: () => void;
   onOpenHistory: () => void;
   onStartBuild: () => void;
   onToggleAiChat: () => void;
@@ -36,6 +38,7 @@ interface NavbarProps {
   onSelectTemplate: (templateId: string) => void;
   onToggleAutoSync?: () => void;
   onPushGitHub?: () => void;
+  onPushGitLab?: () => void;
   isRepairing: boolean;
   lastSavedAt?: string | null;
   ideTheme: "dark" | "light";
@@ -48,9 +51,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   project,
   validationReport,
   githubConfig,
+  gitlabConfig,
   onOpenUpload,
   onOpenBugFixer,
   onOpenGitHub,
+  onOpenGitLab,
   onOpenHistory,
   onStartBuild,
   onToggleAiChat,
@@ -59,6 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectTemplate,
   onToggleAutoSync,
   onPushGitHub,
+  onPushGitLab,
   isRepairing,
   lastSavedAt,
   ideTheme,
@@ -155,8 +161,17 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Mobile Header Actions (Build & Mobile Menu Button) */}
+        {/* Mobile Header Actions (GitHub, Build & Mobile Menu Button) */}
         <div className="flex items-center gap-1.5 md:hidden">
+          <button
+            onClick={onOpenGitHub}
+            className="flex items-center gap-1 bg-purple-950/80 border border-purple-500/70 hover:bg-purple-900 text-purple-200 font-bold text-xs px-2.5 py-1.5 rounded-lg shadow-sm active:scale-95 transition-all"
+            title="گٹ ہب پرانی یا نئی ریپوزیٹری منتخب کریں"
+          >
+            <Github className="w-3.5 h-3.5 text-purple-400" />
+            <span>GitHub</span>
+          </button>
+
           <button
             onClick={onStartBuild}
             className="flex items-center gap-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-xs px-2.5 py-1.5 rounded-lg shadow-md active:scale-95"
@@ -290,6 +305,25 @@ export const Navbar: React.FC<NavbarProps> = ({
           <span>Push GitHub</span>
         </button>
 
+        {/* 2b. GitLab Option Button */}
+        <button
+          onClick={onOpenGitLab}
+          className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border font-medium transition-colors shadow-sm ${
+            gitlabConfig?.token
+              ? "bg-orange-950/60 border-orange-500/60 text-orange-200 hover:bg-orange-900/80"
+              : ideTheme === "light"
+              ? "bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200"
+              : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
+          }`}
+          title="GitLab CI/CD پائپ لائن اور APK جنریٹر (GitLab Option for Android APK Builder)"
+        >
+          <svg className="w-3.5 h-3.5 text-orange-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path d="m23.6 9.6-1.5-4.5c-.2-.6-.9-.9-1.4-.6-.2.1-.4.3-.5.5L18 11.2H6l-2.2-6.2c-.2-.6-.9-.9-1.4-.6-.2.1-.4.3-.5.5L.4 9.6c-.3.8 0 1.7.7 2.2l10.5 7.6c.3.2.7.2 1 0l10.3-7.6c.7-.5 1-1.4.7-2.2z" />
+          </svg>
+          <span>GitLab CI</span>
+          {gitlabConfig?.autoSync && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />}
+        </button>
+
         {/* 3. GitHub APK Download Button */}
         <a
           href={`https://github.com/${ownerName}/${repoName}/releases`}
@@ -380,6 +414,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>⚡ AI Master (پورا پراجیکٹ و گٹ ہب آٹو ہینڈل کریں)</span>
             </button>
 
+            {/* Mobile Dedicated GitHub Repo Selector */}
+            <button
+              onClick={() => {
+                onOpenGitHub();
+                setIsMobileMenuOpen(false);
+              }}
+              className="col-span-2 flex items-center justify-center gap-2 p-3 rounded-xl border border-purple-500/80 bg-gradient-to-r from-purple-950 via-slate-900 to-purple-950 text-purple-200 font-extrabold text-xs shadow-md"
+            >
+              <Github className="w-4 h-4 text-purple-400" />
+              <span>🐙 GitHub ریپوزیٹری منتخب کریں (پرانی / نئی ریپو)</span>
+            </button>
+
             <button
               onClick={() => {
                 onOpenUpload();
@@ -403,6 +449,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>Push GitHub</span>
             </button>
 
+            <button
+              onClick={() => {
+                if (onPushGitLab) onPushGitLab();
+                else if (onOpenGitLab) onOpenGitLab();
+                setIsMobileMenuOpen(false);
+              }}
+              className="flex items-center gap-2 p-2.5 rounded-lg border border-orange-700 bg-orange-950/40 text-orange-200 font-bold"
+            >
+              <svg className="w-4 h-4 text-orange-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="m23.6 9.6-1.5-4.5c-.2-.6-.9-.9-1.4-.6-.2.1-.4.3-.5.5L18 11.2H6l-2.2-6.2c-.2-.6-.9-.9-1.4-.6-.2.1-.4.3-.5.5L.4 9.6c-.3.8 0 1.7.7 2.2l10.5 7.6c.3.2.7.2 1 0l10.3-7.6c.7-.5 1-1.4.7-2.2z" />
+              </svg>
+              <span>GitLab CI Push</span>
+            </button>
+
             <a
               href={`https://github.com/${ownerName}/${repoName}/releases`}
               target="_blank"
@@ -411,8 +471,21 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="col-span-2 flex items-center justify-center gap-2 p-2.5 rounded-lg border border-emerald-500/60 bg-emerald-950/60 text-emerald-300 font-black text-xs shadow"
             >
               <Smartphone className="w-4 h-4 text-emerald-400" />
-              <span>📲 GitHub سے APK ڈاؤنلوڈ کریں (Releases)</span>
+              <span>📲 GitHub Actions سے APK ڈاؤنلوڈ کریں (Releases)</span>
             </a>
+
+            {gitlabConfig?.projectIdOrPath && (
+              <a
+                href={`${(gitlabConfig.instanceUrl || "https://gitlab.com").replace(/\/+$/, "")}/${gitlabConfig.projectIdOrPath}/-/releases`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="col-span-2 flex items-center justify-center gap-2 p-2.5 rounded-lg border border-orange-500/60 bg-orange-950/60 text-orange-300 font-black text-xs shadow"
+              >
+                <Smartphone className="w-4 h-4 text-orange-400" />
+                <span>🦊 GitLab CI سے APK ڈاؤنلوڈ کریں (Pipelines & Releases)</span>
+              </a>
+            )}
 
             <button
               onClick={() => {
@@ -460,6 +533,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Github className="w-4 h-4 text-purple-400" />
               <span>GitHub Settings</span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (onOpenGitLab) onOpenGitLab();
+                setIsMobileMenuOpen(false);
+              }}
+              className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-700 bg-slate-800/40 text-slate-200"
+            >
+              <svg className="w-4 h-4 text-orange-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="m23.6 9.6-1.5-4.5c-.2-.6-.9-.9-1.4-.6-.2.1-.4.3-.5.5L18 11.2H6l-2.2-6.2c-.2-.6-.9-.9-1.4-.6-.2.1-.4.3-.5.5L.4 9.6c-.3.8 0 1.7.7 2.2l10.5 7.6c.3.2.7.2 1 0l10.3-7.6c.7-.5 1-1.4.7-2.2z" />
+              </svg>
+              <span>GitLab Settings</span>
             </button>
           </div>
         </div>

@@ -18,6 +18,7 @@ import {
   ProjectSnapshot,
   BuildHistoryRecord,
   GitHubSyncHistoryRecord,
+  GitLabSyncHistoryRecord,
   AndroidProject,
 } from "../types";
 
@@ -27,11 +28,13 @@ interface ProjectHistoryModalProps {
   snapshots: ProjectSnapshot[];
   buildHistory: BuildHistoryRecord[];
   syncHistory: GitHubSyncHistoryRecord[];
+  gitlabSyncHistory?: GitLabSyncHistoryRecord[];
   onRestoreSnapshot: (snapshot: ProjectSnapshot) => void;
   onClearHistory: () => void;
   onDeleteSnapshotItem?: (id: string) => void;
   onDeleteBuildItem?: (id: string) => void;
   onDeleteSyncItem?: (id: string) => void;
+  onDeleteGitLabSyncItem?: (id: string) => void;
   lastSavedAt: string | null;
 }
 
@@ -41,11 +44,13 @@ export const ProjectHistoryModal: React.FC<ProjectHistoryModalProps> = ({
   snapshots,
   buildHistory,
   syncHistory,
+  gitlabSyncHistory = [],
   onRestoreSnapshot,
   onClearHistory,
   onDeleteSnapshotItem,
   onDeleteBuildItem,
   onDeleteSyncItem,
+  onDeleteGitLabSyncItem,
   lastSavedAt,
 }) => {
   const [activeTab, setActiveTab] = useState<"snapshots" | "builds" | "sync">("snapshots");
@@ -268,46 +273,88 @@ export const ProjectHistoryModal: React.FC<ProjectHistoryModalProps> = ({
 
           {activeTab === "sync" && (
             <>
-              {syncHistory.length === 0 ? (
+              {syncHistory.length === 0 && gitlabSyncHistory.length === 0 ? (
                 <div className="text-center py-12 text-slate-500 text-xs">
-                  No GitHub repository sync operations recorded.
+                  No GitHub or GitLab repository sync operations recorded.
                 </div>
               ) : (
-                syncHistory.map((sync) => (
-                  <div
-                    key={sync.id}
-                    className="bg-slate-950 border border-slate-800 p-3.5 rounded-xl flex items-center justify-between text-xs"
-                  >
-                    <div>
-                      <span className="font-mono text-purple-400 font-semibold">
-                        {sync.owner}/{sync.repo} ({sync.branch})
-                      </span>
-                      <p className="text-slate-300 mt-1">{sync.message}</p>
-                      <span className="text-[10px] text-slate-500 font-mono">{formatDate(sync.timestamp)}</span>
-                    </div>
+                <>
+                  {gitlabSyncHistory.map((sync) => (
+                    <div
+                      key={sync.id}
+                      className="bg-slate-950 border border-orange-800/40 p-3.5 rounded-xl flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <div className="flex items-center gap-1.5 font-mono text-orange-400 font-semibold">
+                          <svg className="w-3.5 h-3.5 text-orange-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="m23.6 9.6-1.5-4.5c-.2-.6-.9-.9-1.4-.6-.2.1-.4.3-.5.5L18 11.2H6l-2.2-6.2c-.2-.6-.9-.9-1.4-.6-.2.1-.4.3-.5.5L.4 9.6c-.3.8 0 1.7.7 2.2l10.5 7.6c.3.2.7.2 1 0l10.3-7.6c.7-.5 1-1.4.7-2.2z" />
+                          </svg>
+                          <span>{sync.projectIdOrPath} ({sync.branch})</span>
+                        </div>
+                        <p className="text-slate-300 mt-1">{sync.message}</p>
+                        <span className="text-[10px] text-slate-500 font-mono">{formatDate(sync.timestamp)}</span>
+                      </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span
-                        className={`px-2.5 py-1 rounded-full font-mono text-[10px] font-bold ${
-                          sync.status === "success"
-                            ? "bg-emerald-500/20 text-emerald-300"
-                            : "bg-red-500/20 text-red-300"
-                        }`}
-                      >
-                        {sync.status.toUpperCase()}
-                      </span>
-                      {onDeleteSyncItem && (
-                        <button
-                          onClick={() => onDeleteSyncItem(sync.id)}
-                          className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors border border-transparent hover:border-rose-500/30"
-                          title="حذف / Delete sync log"
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span
+                          className={`px-2.5 py-1 rounded-full font-mono text-[10px] font-bold ${
+                            sync.status === "success"
+                              ? "bg-emerald-500/20 text-emerald-300"
+                              : "bg-red-500/20 text-red-300"
+                          }`}
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                          {sync.status.toUpperCase()}
+                        </span>
+                        {onDeleteGitLabSyncItem && (
+                          <button
+                            onClick={() => onDeleteGitLabSyncItem(sync.id)}
+                            className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors border border-transparent hover:border-rose-500/30"
+                            title="حذف / Delete GitLab sync log"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+
+                  {syncHistory.map((sync) => (
+                    <div
+                      key={sync.id}
+                      className="bg-slate-950 border border-slate-800 p-3.5 rounded-xl flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <div className="flex items-center gap-1.5 font-mono text-purple-400 font-semibold">
+                          <Github className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                          <span>{sync.owner}/{sync.repo} ({sync.branch})</span>
+                        </div>
+                        <p className="text-slate-300 mt-1">{sync.message}</p>
+                        <span className="text-[10px] text-slate-500 font-mono">{formatDate(sync.timestamp)}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span
+                          className={`px-2.5 py-1 rounded-full font-mono text-[10px] font-bold ${
+                            sync.status === "success"
+                              ? "bg-emerald-500/20 text-emerald-300"
+                              : "bg-red-500/20 text-red-300"
+                          }`}
+                        >
+                          {sync.status.toUpperCase()}
+                        </span>
+                        {onDeleteSyncItem && (
+                          <button
+                            onClick={() => onDeleteSyncItem(sync.id)}
+                            className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors border border-transparent hover:border-rose-500/30"
+                            title="حذف / Delete sync log"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </>
               )}
             </>
           )}

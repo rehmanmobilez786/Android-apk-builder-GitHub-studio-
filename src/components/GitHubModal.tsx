@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Github,
   CheckCircle,
@@ -24,9 +24,33 @@ import {
   Smartphone,
   FolderTree,
   RotateCcw,
+  ArrowLeft,
+  Plus,
+  History,
+  Search,
+  Download,
+  Trash2,
+  Globe,
+  Radio,
+  RefreshCw,
 } from "lucide-react";
-import { GitHubConfig } from "../types";
-import { sanitizeGitHubInputs } from "../utils/githubClient";
+import { GitHubConfig, SavedGitHubRepo, GitHubRepoItem, AndroidFile } from "../types";
+import {
+  sanitizeGitHubInputs,
+  fetchUserGitHubRepos,
+  createNewGitHubRepo,
+  pullFilesFromGitHubRepo,
+} from "../utils/githubClient";
+import {
+  getSavedOldRepos,
+  saveOldRepo,
+  deleteOldRepo,
+} from "../utils/storageManager";
+
+const DEFAULT_OWNER = "rehmanmobilez786";
+const DEFAULT_REPO_NAME = "Android-apk-builder-GitHub-studio-";
+const ALTERNATIVE_REPO_NAME = "Android-apk-builder-GitHub-studio";
+const DEFAULT_BRANCH = "main";
 
 interface GitHubModalProps {
   isOpen: boolean;
@@ -39,6 +63,7 @@ interface GitHubModalProps {
   syncMessage: string | null;
   projectFilesCount?: number;
   onReloadFullProject?: () => void;
+  onImportFiles?: (files: AndroidFile[]) => void;
 }
 
 export const GitHubModal: React.FC<GitHubModalProps> = ({
@@ -52,6 +77,7 @@ export const GitHubModal: React.FC<GitHubModalProps> = ({
   syncMessage,
   projectFilesCount = 18,
   onReloadFullProject,
+  onImportFiles,
 }) => {
   const [tokenInput, setTokenInput] = useState(config.token || "");
   const [ownerInput, setOwnerInput] = useState(config.owner || "rehmanmobilez786");
@@ -61,19 +87,181 @@ export const GitHubModal: React.FC<GitHubModalProps> = ({
   const [releaseTag, setReleaseTag] = useState("v1.0.0");
   const [releaseNotes, setReleaseNotes] = useState("Automated APK release from APK Builder Studio");
   const [activeTab, setActiveTab] = useState<"sync" | "pages" | "safety">("sync");
-
   const [showToken, setShowToken] = useState(true);
   const [pasteStatus, setPasteStatus] = useState<string | null>(null);
   const [useLargeBox, setUseLargeBox] = useState(false);
   const tokenInputRef = useRef<HTMLInputElement>(null);
   const tokenTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  React.useEffect(() => {
+  // Repository Selection Mode: "old" (Existing / Saved Repo) vs "new" (Create New Repo - from Screenshot)
+  const [repoMode, setRepoMode] = useState<"old" | "new">("old");
+
+  // Old Repositories state
+  const [savedRepos, setSavedRepos] = useState<SavedGitHubRepo[]>(() => getSavedOldRepos());
+  const [repoSearch, setRepoSearch] = useState("");
+  const [isFetchingLive, setIsFetchingLive] = useState(false);
+  const [liveRepos, setLiveRepos] = useState<GitHubRepoItem[]>([]);
+  const [isPulling, setIsPulling] = useState(false);
+  const [pullStatus, setPullStatus] = useState<string | null>(null);
+
+  // New Repository state (directly matching screenshot)
+  const [newRepoName, setNewRepoName] = useState("");
+  const [newRepoDesc, setNewRepoDesc] = useState("");
+  const [newRepoVisibility, setNewRepoVisibility] = useState<"private" | "public">("private");
+  const [isCreatingRepo, setIsCreatingRepo] = useState(false);
+  const [createStatus, setCreateStatus] = useState<{ success: boolean; message: string; htmlUrl?: string } | null>(null);
+
+  useEffect(() => {
     if (config.token) setTokenInput(config.token);
     if (config.owner) setOwnerInput(config.owner);
     if (config.repo) setRepoInput(config.repo);
     if (config.branch) setBranchInput(config.branch);
   }, [config]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSavedRepos(getSavedOldRepos());
+    }
+  }, [isOpen]);
+
+  const handleSelectOldRepo = (r: SavedGitHubRepo) => {
+    setOwnerInput(r.owner);
+    setRepoInput(r.repo);
+    if (r.branch) setBranchInput(r.branch);
+    saveOldRepo(r);
+    setSavedRepos(getSavedOldRepos());
+    setPasteStatus(`✅ ریپوزیٹری '${r.owner}/${r.repo}' منتخب ہو گئی!`);
+    setTimeout(() => setPasteStatus(null), 3000);
+  };
+
+  const handleDeleteOldRepo = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = deleteOldRepo(id);
+    setSavedRepos(updated);
+  };
+
+  const handleFetchLiveRepos = async () => {
+    if (!ownerInput && !tokenInput) {
+      setPasteStatus("⚠️ براہ کرم اوپر صارف کا نام (Username) یا Token درج کریں۔");
+      setTimeout(() => setPasteStatus(null), 3500);
+      return;
+    }
+    setIsFetchingLive(true);
+    setPasteStatus("گٹ ہب سے آپ کی تمام ریپوز لائیو لوڈ ہو رہی ہیں...");
+    const res = await fetchUserGitHubRepos(tokenInput, ownerInput);
+    setIsFetchingLive(false);
+    if (res.success) {
+      setLiveRepos(res.repos);
+      setPasteStatus(`✅ ${res.repos.length} ریپوز گٹ ہب سے کامیابی سے لوڈ ہو گئیں!`);
+      setTimeout(() => setPasteStatus(null), 4000);
+    } else {
+      setPasteStatus(`❌ ${res.message || "ریپوز فیچ کرنے میں ناکامی۔"}`);
+      setTimeout(() => setPasteStatus(null), 4000);
+    }
+  };
+
+  const handleSelectLiveRepo = (item: GitHubRepoItem) => {
+    setOwnerInput(item.owner);
+    setRepoInput(item.name);
+    setBranchInput(item.defaultBranch || "main");
+    const updated = saveOldRepo({
+      owner: item.owner,
+      repo: item.name,
+      branch: item.defaultBranch || "main",
+      label: `${item.fullName} (${item.private ? "Private" : "Public"})`,
+      description: item.description,
+      isPrivate: item.private,
+    });
+    setSavedRepos(updated);
+    setPasteStatus(`✅ ریپوزیٹری '${item.fullName}' منتخب ہو گئی!`);
+    setTimeout(() => setPasteStatus(null), 3000);
+  };
+
+  const handlePullFromRepo = async (targetOwner?: string, targetRepo?: string, targetBranch?: string) => {
+    const owner = targetOwner || ownerInput;
+    const repo = targetRepo || repoInput;
+    const branch = targetBranch || branchInput;
+
+    setIsPulling(true);
+    setPullStatus(`📥 ریپو '${owner}/${repo}' سے سورس فائلیں ڈاؤن لوڈ ہو رہی ہیں...`);
+    const res = await pullFilesFromGitHubRepo(tokenInput, owner, repo, branch);
+    setIsPulling(false);
+    if (res.success && res.files && res.files.length > 0) {
+      if (onImportFiles) {
+        onImportFiles(res.files);
+      }
+      setPullStatus(res.message);
+      setTimeout(() => setPullStatus(null), 6000);
+    } else {
+      setPullStatus(res.message);
+      setTimeout(() => setPullStatus(null), 5000);
+    }
+  };
+
+  const handleCreateNewRepoSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!tokenInput || !tokenInput.trim()) {
+      setCreateStatus({
+        success: false,
+        message: "⚠️ نئی ریپوزیٹری بنانے کے لیے اوپر Personal Access Token (PAT) لازمی درج کریں جس میں 'repo' اسکوپ ہو۔",
+      });
+      return;
+    }
+    if (!newRepoName || !newRepoName.trim()) {
+      setCreateStatus({
+        success: false,
+        message: "⚠️ براہ کرم نئی ریپوزیٹری کا نام (New repository name) درج کریں۔",
+      });
+      return;
+    }
+
+    setIsCreatingRepo(true);
+    setCreateStatus(null);
+    const res = await createNewGitHubRepo(
+      tokenInput,
+      newRepoName.trim(),
+      newRepoVisibility === "private",
+      newRepoDesc.trim() || "Android Studio APK project generated by APK Builder"
+    );
+    setIsCreatingRepo(false);
+
+    if (res.success && res.repo) {
+      setCreateStatus({
+        success: true,
+        message: res.message,
+        htmlUrl: res.repo.htmlUrl,
+      });
+      // Set as active repo
+      setOwnerInput(res.repo.owner);
+      setRepoInput(res.repo.name);
+      setBranchInput(res.repo.defaultBranch || "main");
+
+      // Save into old repos list for future quick select
+      const updated = saveOldRepo({
+        owner: res.repo.owner,
+        repo: res.repo.name,
+        branch: res.repo.defaultBranch || "main",
+        label: `${res.repo.owner}/${res.repo.name} (نئی ریپو)`,
+        description: newRepoDesc || "New project repository",
+        isPrivate: newRepoVisibility === "private",
+      });
+      setSavedRepos(updated);
+
+      // Update config
+      onUpdateConfig({
+        token: tokenInput.trim(),
+        owner: res.repo.owner,
+        repo: res.repo.name,
+        branch: res.repo.defaultBranch || "main",
+        autoSync,
+      });
+    } else {
+      setCreateStatus({
+        success: false,
+        message: res.message || "ریپوزیٹری بنانے میں نامعلوم خرابی پیش آئی۔",
+      });
+    }
+  };
 
   const handlePasteClipboard = async () => {
     // 1. Try standard Navigator Clipboard API
@@ -452,85 +640,452 @@ export const GitHubModal: React.FC<GitHubModalProps> = ({
                 </div>
               </div>
 
-              {/* Owner & Repo Inputs */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-slate-300">GitHub Username / Owner</label>
-                    <span className="text-[10px] text-slate-400 font-mono">user</span>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="rehmanmobilez786"
-                    value={ownerInput}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val.includes("github.com/") || val.includes("github.io/")) {
-                        const s = sanitizeGitHubInputs(val, repoInput);
-                        setOwnerInput(s.owner);
-                        if (s.repo && s.repo !== repoInput) setRepoInput(s.repo);
-                      } else {
-                        setOwnerInput(val.replace(/^@/, "").trim());
-                      }
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs px-3 py-2.5 rounded-xl focus:outline-none focus:border-purple-500 font-mono"
-                  />
+              {/* Pull Status Toast if active */}
+              {pullStatus && (
+                <div className="p-3 bg-sky-950/60 border border-sky-500/40 rounded-xl text-sky-200 text-xs flex items-center gap-2">
+                  <Download className="w-4 h-4 text-sky-400 shrink-0 animate-bounce" />
+                  <span className="font-medium">{pullStatus}</span>
                 </div>
+              )}
 
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Repository Name</label>
-                    <span className="text-[10px] text-emerald-400 font-mono font-bold">صرف ریپو کا نام</span>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Android-apk-builder-GitHub-studio-"
-                    value={repoInput}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val.includes("http://") || val.includes("https://") || val.includes("github.com") || val.includes("github.io") || val.endsWith(".git")) {
-                        const s = sanitizeGitHubInputs(ownerInput, val);
-                        setRepoInput(s.repo);
-                        if (s.owner && s.owner !== ownerInput) setOwnerInput(s.owner);
-                        setPasteStatus("✅ ریپوزیٹری نام خودکار صاف ہو گیا!");
-                        setTimeout(() => setPasteStatus(null), 3000);
-                      } else {
-                        setRepoInput(val.trim());
-                      }
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs px-3 py-2.5 rounded-xl focus:outline-none focus:border-purple-500 font-mono"
-                  />
-                </div>
+              {/* MODE TOGGLE BAR: Old / Existing Repo vs Create New Repo */}
+              <div className="bg-slate-950 p-1.5 rounded-2xl border border-slate-800 flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setRepoMode("old")}
+                  className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                    repoMode === "old"
+                      ? "bg-purple-600 text-white shadow-md"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                  }`}
+                >
+                  <History className="w-4 h-4" />
+                  <span>📁 پرانی ریپوزیٹری (Existing / Old Repo)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRepoMode("new")}
+                  className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                    repoMode === "new"
+                      ? "bg-purple-600 text-white shadow-md"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                  }`}
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>✨ نئی ریپوزیٹری بنائیں (New Repo)</span>
+                </button>
               </div>
 
-              {/* Quick Repo Select Pills & URL note */}
-              <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                <span className="text-slate-400 font-medium flex items-center gap-1">
-                  <span>💡 فوری ریپو منتخب کریں:</span>
-                </span>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOwnerInput("rehmanmobilez786");
-                      setRepoInput("Android-apk-builder-GitHub-studio-");
-                    }}
-                    className="bg-purple-950/70 hover:bg-purple-900 border border-purple-600/40 text-purple-300 px-2 py-0.5 rounded-md font-mono text-[10px] font-bold"
-                  >
-                    Android-apk-builder-GitHub-studio-
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOwnerInput("safdarali789");
-                      setRepoInput("android-apk-builder-studio");
-                    }}
-                    className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded-md font-mono text-[10px]"
-                  >
-                    safdarali789 / android-apk-builder-studio
-                  </button>
+              {/* VIEW 1: OLD / EXISTING REPOSITORY SELECTION */}
+              {repoMode === "old" && (
+                <div className="space-y-3">
+                  {/* Current Active Target Banner */}
+                  <div className="bg-gradient-to-r from-purple-950/40 to-slate-900/60 p-3 rounded-xl border border-purple-500/30 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] text-purple-300 font-bold uppercase tracking-wider block">
+                        ایکٹیو منتخب شدہ پرانی ریپوزیٹری:
+                      </span>
+                      <span className="text-sm font-bold font-mono text-slate-100">
+                        @{ownerInput}/{repoInput}
+                      </span>
+                      <span className="text-[10px] text-slate-400 ml-2">
+                        (برانچ: <code className="text-sky-300 font-mono">{branchInput}</code>)
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handlePullFromRepo()}
+                        disabled={isPulling}
+                        className="px-2.5 py-1.5 bg-sky-950/70 hover:bg-sky-900 text-sky-200 border border-sky-700/50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50"
+                        title="اس ریپو سے سورس فائلیں ڈاؤن لوڈ کر کے ایڈیٹر میں لائیں"
+                      >
+                        <Download className="w-3.5 h-3.5 text-sky-400" />
+                        <span>{isPulling ? "ڈاؤن لوڈ ہو رہا ہے..." : "کوڈ امپورٹ کریں"}</span>
+                      </button>
+
+                      {repoInput && (
+                        <a
+                          href={`https://github.com/${ownerInput}/${repoInput}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition-all"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>کھولیں</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Filter & Live Fetch Bar */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative flex-1 min-w-[200px]">
+                      <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-3" />
+                      <input
+                        type="text"
+                        placeholder="پرانی ریپوزیٹری تلاش یا فلٹر کریں..."
+                        value={repoSearch}
+                        onChange={(e) => setRepoSearch(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs pl-8 pr-3 py-2 rounded-xl focus:outline-none focus:border-purple-500"
+                      />
+                      {repoSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setRepoSearch("")}
+                          className="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleFetchLiveRepos}
+                      disabled={isFetchingLive}
+                      className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-purple-300 border border-purple-500/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50"
+                      title="گٹ ہب اکاؤنٹ سے تمام پرانی ریپوز لائیو حاصل کریں"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isFetchingLive ? "animate-spin" : ""}`} />
+                      <span>{isFetchingLive ? "لوڈ ہو رہی ہیں..." : "🔄 گٹ ہب سے لائیو ریپوز لائیں"}</span>
+                    </button>
+                  </div>
+
+                  {/* Saved & Preset Old Repositories Grid */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-slate-300 font-semibold">
+                      <span>محفوظ شدہ پرانی ریپوز (Saved Old Repositories):</span>
+                      <span className="text-[10px] text-slate-400">ایک کلک پر منتخب کریں</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                      {savedRepos
+                        .filter((r) =>
+                          repoSearch
+                            ? `${r.owner}/${r.repo} ${r.label || ""} ${r.description || ""}`
+                                .toLowerCase()
+                                .includes(repoSearch.toLowerCase())
+                            : true
+                        )
+                        .map((r) => {
+                          const isSelected =
+                            ownerInput.toLowerCase() === r.owner.toLowerCase() &&
+                            repoInput.toLowerCase() === r.repo.toLowerCase();
+
+                          return (
+                            <div
+                              key={r.id}
+                              onClick={() => handleSelectOldRepo(r)}
+                              className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                                isSelected
+                                  ? "bg-purple-950/40 border-purple-500 text-purple-200 shadow-sm ring-1 ring-purple-500/50"
+                                  : "bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700 hover:bg-slate-900/60"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-1">
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-xs font-bold font-mono truncate flex items-center gap-1.5">
+                                    <span>@{r.owner}/{r.repo}</span>
+                                    {isSelected && (
+                                      <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                                    {r.label || r.description || "پرانی ریپوزیٹری"}
+                                  </div>
+                                </div>
+
+                                {!r.id.startsWith("preset-") && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleDeleteOldRepo(r.id, e)}
+                                    className="p-1 text-slate-500 hover:text-rose-400 rounded transition-colors"
+                                    title="فہرست سے ہٹائیں"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-900">
+                                <span>برانچ: {r.branch || "main"}</span>
+                                <span className={isSelected ? "text-emerald-400 font-bold" : "text-purple-400 hover:underline"}>
+                                  {isSelected ? "✓ فعال ہے" : "سلیکٹ کریں →"}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+
+                  {/* Live GitHub Fetched Repositories (if loaded) */}
+                  {liveRepos.length > 0 && (
+                    <div className="bg-slate-950 p-3 rounded-xl border border-sky-500/30 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-semibold text-sky-300">
+                        <span>گٹ ہب سے فیچ شدہ ریپوز ({liveRepos.length}):</span>
+                        <span className="text-[10px] text-slate-400">کلک کر کے ایکٹیو کریں</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-1">
+                        {liveRepos
+                          .filter((lr) =>
+                            repoSearch ? lr.fullName.toLowerCase().includes(repoSearch.toLowerCase()) : true
+                          )
+                          .map((lr) => (
+                            <button
+                              key={lr.id}
+                              type="button"
+                              onClick={() => handleSelectLiveRepo(lr)}
+                              className="text-left p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-sky-500/50 transition-all flex items-center justify-between text-xs"
+                            >
+                              <div className="truncate pr-2">
+                                <div className="font-mono text-slate-200 font-bold truncate">{lr.name}</div>
+                                <div className="text-[9px] text-slate-400 truncate">{lr.description || "کوئی تفصیل نہیں"}</div>
+                              </div>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
+                                {lr.private ? "Private" : "Public"}
+                              </span>
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Manual / Fine-Tune Input Fields for Old Repo */}
+                  <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80 space-y-2.5">
+                    <span className="text-xs font-semibold text-slate-300 block">
+                      دستی تفصیلات (Manual Details for Old Repo):
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-400 block mb-1">
+                          GitHub Username / Owner
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="rehmanmobilez786"
+                          value={ownerInput}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val.includes("github.com/") || val.includes("github.io/")) {
+                              const s = sanitizeGitHubInputs(val, repoInput);
+                              setOwnerInput(s.owner);
+                              if (s.repo && s.repo !== repoInput) setRepoInput(s.repo);
+                            } else {
+                              setOwnerInput(val.replace(/^@/, "").trim());
+                            }
+                          }}
+                          className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-purple-500 font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-400 block mb-1">
+                          پرانی ریپوزیٹری کا نام (Repo Name)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Android-apk-builder-GitHub-studio-"
+                          value={repoInput}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val.includes("http://") || val.includes("https://") || val.includes("github.com") || val.includes("github.io") || val.endsWith(".git")) {
+                              const s = sanitizeGitHubInputs(ownerInput, val);
+                              setRepoInput(s.repo);
+                              if (s.owner && s.owner !== ownerInput) setOwnerInput(s.owner);
+                              setPasteStatus("✅ ریپوزیٹری نام خودکار صاف ہو گیا!");
+                              setTimeout(() => setPasteStatus(null), 3000);
+                            } else {
+                              setRepoInput(val.trim());
+                            }
+                          }}
+                          className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-purple-500 font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* VIEW 2: CREATE NEW REPOSITORY (MATCHING USER SCREENSHOT) */}
+              {repoMode === "new" && (
+                <div className="bg-slate-950 p-4 rounded-2xl border border-purple-500/40 space-y-4">
+                  {/* Top Bar with Back Arrow like screenshot */}
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setRepoMode("old")}
+                      className="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white transition-colors"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      <span className="font-semibold">GitHub sync</span>
+                    </button>
+                    <span className="text-[10px] text-purple-400 bg-purple-950/60 px-2 py-0.5 rounded border border-purple-800/60 font-bold">
+                      اکاؤنٹ: @{ownerInput || "rehmanmobilez786"}
+                    </span>
+                  </div>
+
+                  {/* New repository name field */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-200 block">
+                      New repository name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="مثلاً: Android-apk-builder-studio-new"
+                      value={newRepoName}
+                      onChange={(e) => setNewRepoName(e.target.value.replace(/[^a-zA-Z0-9._-]/g, "-"))}
+                      className="w-full bg-slate-900 border border-slate-800 text-slate-100 text-xs px-3 py-2.5 rounded-xl focus:outline-none focus:border-purple-500 font-mono"
+                    />
+                    <p className="text-[10px] text-slate-400">
+                      یہ ریپوزیٹری خودکار طور پر آپ کے GitHub اکاؤنٹ (<strong className="text-slate-200">@{ownerInput}</strong>) پر بن جائے گی۔
+                    </p>
+                  </div>
+
+                  {/* New repository description field */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-200 block">
+                      New repository description
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Android Studio APK project generated by APK Builder Studio"
+                      value={newRepoDesc}
+                      onChange={(e) => setNewRepoDesc(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-800 text-slate-100 text-xs px-3 py-2.5 rounded-xl focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+
+                  {/* Visibility Radio Options (Matching Screenshot) */}
+                  <div className="space-y-2 pt-1">
+                    <label className="text-xs font-semibold text-slate-200 block">
+                      Visibility
+                    </label>
+
+                    <div className="space-y-2">
+                      {/* Private Option */}
+                      <label
+                        className={`p-3 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
+                          newRepoVisibility === "private"
+                            ? "bg-purple-950/30 border-purple-500 text-slate-100"
+                            : "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="repoVisibility"
+                          checked={newRepoVisibility === "private"}
+                          onChange={() => setNewRepoVisibility("private")}
+                          className="mt-1 text-purple-600 focus:ring-purple-500"
+                        />
+                        <div className="text-xs">
+                          <div className="font-bold flex items-center gap-1.5">
+                            <Lock className="w-3.5 h-3.5 text-purple-400" />
+                            <span>Private</span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-0.5">
+                            Only you can access this repo on GitHub.com
+                          </div>
+                        </div>
+                      </label>
+
+                      {/* Public Option */}
+                      <label
+                        className={`p-3 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
+                          newRepoVisibility === "public"
+                            ? "bg-purple-950/30 border-purple-500 text-slate-100"
+                            : "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="repoVisibility"
+                          checked={newRepoVisibility === "public"}
+                          onChange={() => setNewRepoVisibility("public")}
+                          className="mt-1 text-purple-600 focus:ring-purple-500"
+                        />
+                        <div className="text-xs">
+                          <div className="font-bold flex items-center gap-1.5">
+                            <Globe className="w-3.5 h-3.5 text-sky-400" />
+                            <span>Public</span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-0.5">
+                            This repo will be discoverable by everyone on GitHub.com
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Create Status Alert */}
+                  {createStatus && (
+                    <div
+                      className={`p-3 rounded-xl text-xs flex items-start gap-2.5 ${
+                        createStatus.success
+                          ? "bg-emerald-950/60 border border-emerald-500/50 text-emerald-200"
+                          : "bg-rose-950/60 border border-rose-500/50 text-rose-200"
+                      }`}
+                    >
+                      {createStatus.success ? (
+                        <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex-1">
+                        <div className="font-semibold leading-relaxed">{createStatus.message}</div>
+                        {createStatus.success && (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            {createStatus.htmlUrl && (
+                              <a
+                                href={createStatus.htmlUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 rounded-lg text-[11px] font-bold border border-emerald-600/60"
+                              >
+                                <span>گٹ ہب پر دیکھیں</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={handlePushNow}
+                              disabled={isSyncing}
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-[11px] font-bold shadow transition-all"
+                            >
+                              <Send className="w-3 h-3" />
+                              <span>🚀 اس نئی ریپو میں سورس کوڈ پش کریں</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Create GitHub Repository Button (Directly from Screenshot) */}
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCreateNewRepoSubmit()}
+                      disabled={isCreatingRepo || !newRepoName.trim()}
+                      className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2"
+                    >
+                      {isCreatingRepo ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Plus className="w-4 h-4" />
+                      )}
+                      <span>
+                        {isCreatingRepo
+                          ? "گٹ ہب پر ریپوزیٹری بن رہی ہے..."
+                          : "Create GitHub repository (نئی ریپوزیٹری بنائیں)"}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

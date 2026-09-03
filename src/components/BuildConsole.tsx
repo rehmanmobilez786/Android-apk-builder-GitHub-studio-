@@ -14,7 +14,7 @@ import {
   Github,
   ExternalLink,
 } from "lucide-react";
-import { BuildOutput, BuildLogStep, AndroidProject, GitHubConfig } from "../types";
+import { BuildOutput, BuildLogStep, AndroidProject, GitHubConfig, GitLabConfig } from "../types";
 
 interface BuildConsoleProps {
   isOpen: boolean;
@@ -24,7 +24,9 @@ interface BuildConsoleProps {
   onRebuild: () => void;
   project?: AndroidProject;
   githubConfig?: GitHubConfig;
+  gitlabConfig?: GitLabConfig;
   onPushGitHub?: () => void;
+  onPushGitLab?: () => void;
 }
 
 export const BuildConsole: React.FC<BuildConsoleProps> = ({
@@ -35,7 +37,9 @@ export const BuildConsole: React.FC<BuildConsoleProps> = ({
   onRebuild,
   project,
   githubConfig,
+  gitlabConfig,
   onPushGitHub,
+  onPushGitLab,
 }) => {
   if (!isOpen) return null;
 
@@ -43,6 +47,11 @@ export const BuildConsole: React.FC<BuildConsoleProps> = ({
   const repo = githubConfig?.repo || "Android-apk-builder-GitHub-studio-";
   const releasesUrl = `https://github.com/${owner}/${repo}/releases`;
   const actionsUrl = `https://github.com/${owner}/${repo}/actions`;
+
+  const glInstance = (gitlabConfig?.instanceUrl || "https://gitlab.com").replace(/\/+$/, "");
+  const glProject = (gitlabConfig?.projectIdOrPath || "rehmanmobilez786/Android-apk-builder-studio").replace(/^\/+|\/+$/g, "");
+  const glPipelinesUrl = `${glInstance}/${glProject}/-/pipelines`;
+  const glReleasesUrl = `${glInstance}/${glProject}/-/releases`;
 
   useEffect(() => {
     if (buildOutput && buildOutput.success && !isBuilding) {
@@ -157,7 +166,52 @@ export const BuildConsole: React.FC<BuildConsoleProps> = ({
                       className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs px-4 py-3 rounded-xl transition-all shadow"
                     >
                       <Send className="w-3.5 h-3.5" />
-                      <span>Push & Trigger CI</span>
+                      <span>Push & Trigger GitHub CI</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* GitLab CI/CD Cloud APK Card */}
+              <div className="bg-gradient-to-r from-orange-950/70 via-slate-900 to-amber-950/70 border-2 border-orange-500/60 p-5 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-xl">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-orange-500/20 text-orange-400 rounded-2xl border border-orange-500/40">
+                    <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="m23.6 9.6-1.5-4.5c-.2-.6-.9-.9-1.4-.6-.2.1-.4.3-.5.5L18 11.2H6l-2.2-6.2c-.2-.6-.9-.9-1.4-.6-.2.1-.4.3-.5.5L.4 9.6c-.3.8 0 1.7.7 2.2l10.5 7.6c.3.2.7.2 1 0l10.3-7.6c.7-.5 1-1.4.7-2.2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="font-black text-slate-100 text-sm sm:text-base flex items-center gap-2">
+                      <span>🦊 GITLAB CI/CD PIPELINE APK</span>
+                      <span className="text-[10px] bg-orange-500 text-slate-950 font-black px-2 py-0.5 rounded-full uppercase">
+                        GitLab CI Ready
+                      </span>
+                    </h4>
+                    <p className="text-xs text-slate-300 mt-1">
+                      GitLab CI/CD پائپ لائن (.gitlab-ci.yml) کے ذریعے خودکار طریقہ سے تیار کردہ Android APK ڈاؤنلوڈ کریں۔
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <a
+                    href={glPipelinesUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-slate-950 font-black text-xs px-5 py-3 rounded-xl shadow-lg transition-transform active:scale-95 ring-2 ring-orange-400/40"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>GitLab Pipelines سے APK حاصل کریں</span>
+                    <ExternalLink className="w-3.5 h-3.5 ml-0.5" />
+                  </a>
+
+                  {onPushGitLab && (
+                    <button
+                      onClick={onPushGitLab}
+                      className="flex items-center gap-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs px-4 py-3 rounded-xl transition-all shadow"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Push & Run GitLab CI</span>
                     </button>
                   )}
                 </div>
@@ -222,10 +276,13 @@ export const BuildConsole: React.FC<BuildConsoleProps> = ({
                       <strong>طریقہ 1 (GitHub Actions / Auto Cloud Build):</strong> پروجیکٹ کو گٹ ہب میں پش کریں۔ اس میں <code className="bg-black/40 px-1 py-0.5 rounded font-mono text-emerald-300">.github/workflows/android-build-apk.yml</code> کلاؤڈ بلڈر شامل ہے۔ اوپر دیے گئے بٹن <strong className="text-emerald-400">GitHub Releases سے APK ڈاؤنلوڈ کریں</strong> سے براہِ راست موبائل میں اصلی APK انسٹال کریں!
                     </li>
                     <li>
-                      <strong>طریقہ 2 (Android Studio / Local Gradle):</strong> اوپر دیا گیا <strong className="text-sky-300">Download Source Project (.zip)</strong> ڈاؤن لوڈ کریں۔ اسے <strong>Android Studio</strong> میں کھولیں اور <code className="bg-black/40 px-1 py-0.5 rounded font-mono">Build &gt; Build APK(s)</code> پر کلک کریں — آپ کو 100% اصلی انسٹال ایبل APK مل جائے گی۔
+                      <strong>طریقہ 2 (GitLab CI/CD / Automated Pipeline):</strong> پروجیکٹ کو GitLab پر پش کریں۔ اس میں پہلے سے تیار شدہ <code className="bg-black/40 px-1 py-0.5 rounded font-mono text-orange-300">.gitlab-ci.yml</code> کنفیگریشن شامل ہے جو سرور پر خودکار کمپائل کر کے اصلی APK پروڈیوس کرتی ہے۔
                     </li>
                     <li>
-                      <strong>طریقہ 3 (لائیو ٹیسٹنگ):</strong> APK Studio کے اندر اوپر **Interactive Emulator** ٹب پر کلک کریں — یہاں تمام سکرینز، بٹن اور ڈیزائن لائیو فون کی طرح فوراً چلتے ہیں!
+                      <strong>طریقہ 3 (Android Studio / Local Gradle):</strong> اوپر دیا گیا <strong className="text-sky-300">Download Source Project (.zip)</strong> ڈاؤن لوڈ کریں۔ اسے <strong>Android Studio</strong> میں کھولیں اور <code className="bg-black/40 px-1 py-0.5 rounded font-mono">Build &gt; Build APK(s)</code> پر کلک کریں — آپ کو 100% اصلی انسٹال ایبل APK مل جائے گی۔
+                    </li>
+                    <li>
+                      <strong>طریقہ 4 (لائیو ٹیسٹنگ):</strong> APK Studio کے اندر اوپر **Interactive Emulator** ٹب پر کلک کریں — یہاں تمام سکرینز، بٹن اور ڈیزائن لائیو فون کی طرح فوراً چلتے ہیں!
                     </li>
                   </ul>
                 </div>

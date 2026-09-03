@@ -25,6 +25,8 @@ export interface WorkflowPipelineProps {
   onOpenBuildConsole: () => void;
   onPushGitHub?: () => void;
   onOpenGitHub?: () => void;
+  onPushGitLab?: () => void;
+  onOpenGitLab?: () => void;
   githubRepo?: { owner: string; repo: string };
   issueCount: number;
   isBuilding: boolean;
@@ -43,6 +45,8 @@ export const WorkflowPipeline: React.FC<WorkflowPipelineProps> = ({
   onOpenBuildConsole,
   onPushGitHub,
   onOpenGitHub,
+  onPushGitLab,
+  onOpenGitLab,
   githubRepo = { owner: "rehmanmobilez786", repo: "Android-apk-builder-GitHub-studio-" },
   issueCount,
   isBuilding,
@@ -51,6 +55,7 @@ export const WorkflowPipeline: React.FC<WorkflowPipelineProps> = ({
   ideTheme = "dark",
 }) => {
   const [isAutoRunning, setIsAutoRunning] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<"github" | "gitlab">("github");
 
   const steps = [
     {
@@ -79,20 +84,28 @@ export const WorkflowPipeline: React.FC<WorkflowPipelineProps> = ({
     },
     {
       id: 4,
-      title: "4. Push GitHub & بلڈ",
-      subtitle: "GitHub Cloud Build",
+      title: selectedProvider === "gitlab" ? "4. Push GitLab & CI" : "4. Push GitHub & CI",
+      subtitle: selectedProvider === "gitlab" ? "GitLab CI Runner" : "GitHub Actions CI",
       icon: Send,
-      actionLabel: "GitHub پر پش کریں",
+      actionLabel: selectedProvider === "gitlab" ? "GitLab پر پش کریں" : "GitHub پر پش کریں",
       action: () => {
-        if (onPushGitHub) onPushGitHub();
-        else if (onOpenGitHub) onOpenGitHub();
-        else onStartBuild();
+        if (selectedProvider === "gitlab" && onPushGitLab) {
+          onPushGitLab();
+        } else if (selectedProvider === "gitlab" && onOpenGitLab) {
+          onOpenGitLab();
+        } else if (onPushGitHub) {
+          onPushGitHub();
+        } else if (onOpenGitHub) {
+          onOpenGitHub();
+        } else {
+          onStartBuild();
+        }
       },
     },
     {
       id: 5,
-      title: "5. GitHub سے APK ڈاؤنلوڈ",
-      subtitle: "Releases & APK",
+      title: "5. APK ڈاؤنلوڈ کریں",
+      subtitle: selectedProvider === "gitlab" ? "GitLab CI Artifacts" : "GitHub Releases",
       icon: Download,
       actionLabel: "ڈاؤن لوڈ APK",
       action: onOpenBuildConsole,
@@ -149,7 +162,35 @@ export const WorkflowPipeline: React.FC<WorkflowPipelineProps> = ({
         <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-between md:justify-start border-b md:border-b-0 pb-1.5 md:pb-0 border-slate-800/50">
           <div className="flex items-center gap-1.5 bg-sky-500/10 border border-sky-500/30 px-2.5 py-1 rounded-lg text-sky-400 text-xs font-bold">
             <Layers className="w-4 h-4 text-sky-400 shrink-0" />
-            <span>پراجیکٹ ورک فلو (Step-by-Step)</span>
+            <span>پراجیکٹ ورک فلو</span>
+          </div>
+
+          {/* Provider Selector: GitHub or GitLab */}
+          <div className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[11px]">
+            <button
+              onClick={() => setSelectedProvider("github")}
+              className={`px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 transition-all ${
+                selectedProvider === "github"
+                  ? "bg-purple-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Github className="w-3 h-3" />
+              <span>GitHub CI</span>
+            </button>
+            <button
+              onClick={() => setSelectedProvider("gitlab")}
+              className={`px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 transition-all ${
+                selectedProvider === "gitlab"
+                  ? "bg-orange-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                <path d="m23.6 9.6-1.5-4.5c-.2-.6-.9-.9-1.4-.6-.2.1-.4.3-.5.5L18 11.2H6l-2.2-6.2c-.2-.6-.9-.9-1.4-.6-.2.1-.4.3-.5.5L.4 9.6c-.3.8 0 1.7.7 2.2l10.5 7.6c.3.2.7.2 1 0l10.3-7.6c.7-.5 1-1.4.7-2.2z" />
+              </svg>
+              <span>GitLab CI</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-1.5">

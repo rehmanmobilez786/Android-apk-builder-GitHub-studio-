@@ -18,14 +18,16 @@ import {
   Zap,
   ArrowRight,
 } from "lucide-react";
-import { AndroidProject, GitHubConfig } from "../types";
+import { AndroidProject, GitHubConfig, GitLabConfig } from "../types";
 
 interface AiProjectManagerProps {
   isOpen: boolean;
   onClose: () => void;
   project: AndroidProject;
   githubConfig: GitHubConfig;
+  gitlabConfig?: GitLabConfig;
   onPushGitHub: () => void;
+  onPushGitLab?: () => void;
   onAutoRepairCode: () => void;
   onStartBuild: () => void;
   onOpenUpload: () => void;
@@ -46,7 +48,9 @@ export const AiProjectManager: React.FC<AiProjectManagerProps> = ({
   onClose,
   project,
   githubConfig,
+  gitlabConfig,
   onPushGitHub,
+  onPushGitLab,
   onAutoRepairCode,
   onStartBuild,
   onOpenUpload,
@@ -82,8 +86,18 @@ export const AiProjectManager: React.FC<AiProjectManagerProps> = ({
     },
     {
       id: "t-4",
-      title: "Trigger GitHub Actions Real APK Build",
-      desc: "گٹ ہب کلاؤڈ سرور پر اصلی اینڈرائیڈ APK بلڈ رن کریں اور ریلیز ڈاؤنلوڈ تیار کریں",
+      title: "GitLab CI/CD Safe Push & Runner",
+      desc: "GitLab پر تمام سورس فائلز اور .gitlab-ci.yml سنک کریں اور خودکار APK پائپ لائن چلائیں",
+      status: "idle",
+      category: "github",
+      action: () => {
+        if (onPushGitLab) onPushGitLab();
+      },
+    },
+    {
+      id: "t-5",
+      title: "Trigger Real APK Cloud Build",
+      desc: "گٹ ہب یا گٹ لیب کلاؤڈ سرور پر اصلی اینڈرائیڈ APK بلڈ رن کریں اور ریلیز ڈاؤنلوڈ تیار کریں",
       status: "idle",
       category: "build",
       action: () => onStartBuild(),
@@ -96,6 +110,11 @@ export const AiProjectManager: React.FC<AiProjectManagerProps> = ({
   const repo = githubConfig?.repo || "Android-apk-builder-GitHub-studio-";
   const pagesUrl = `https://${owner}.github.io/${repo}/`;
   const releasesUrl = `https://github.com/${owner}/${repo}/releases`;
+
+  const glInstance = (gitlabConfig?.instanceUrl || "https://gitlab.com").replace(/\/+$/, "");
+  const glProject = (gitlabConfig?.projectIdOrPath || "rehmanmobilez786/Android-apk-builder-studio").replace(/^\/+|\/+$/g, "");
+  const glProjectUrl = `${glInstance}/${glProject}`;
+  const glPipelinesUrl = `${glInstance}/${glProject}/-/pipelines`;
 
   const runAllAutomated = async () => {
     setAiThinking(true);
@@ -220,20 +239,20 @@ export const AiProjectManager: React.FC<AiProjectManagerProps> = ({
             </button>
           </div>
 
-          {/* Quick Status Cards (GitHub Repo & Live Pages) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Quick Status Cards (GitHub Repo, GitLab CI & Live Pages) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-200 flex items-center gap-2">
                   <Github className="w-4 h-4 text-purple-400" />
                   <span>GitHub Repository</span>
                 </span>
-                <span className="text-[10px] font-mono text-purple-300 bg-purple-950/60 px-2 py-0.5 rounded border border-purple-800/60">
+                <span className="text-[10px] font-mono text-purple-300 bg-purple-950/60 px-2 py-0.5 rounded border border-purple-800/60 truncate max-w-[120px]">
                   {owner}/{repo}
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                تمام اینڈرائڈ فائلیں، Kotlin سورس اور Gradle سیٹنگز۔
+                اینڈرائڈ سورس فائلز، Kotlin، XML اور Actions ورک فلو۔
               </p>
               <div className="pt-1 flex items-center gap-2">
                 <button
@@ -241,7 +260,7 @@ export const AiProjectManager: React.FC<AiProjectManagerProps> = ({
                   className="bg-purple-600 hover:bg-purple-500 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
                 >
                   <Send className="w-3 h-3" />
-                  <span>پش کریں (Push GitHub)</span>
+                  <span>Push GitHub</span>
                 </button>
                 <a
                   href={`https://github.com/${owner}/${repo}`}
@@ -257,15 +276,51 @@ export const AiProjectManager: React.FC<AiProjectManagerProps> = ({
             <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-200 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-orange-400" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="m23.6 9.6-1.5-4.5c-.2-.6-.9-.9-1.4-.6-.2.1-.4.3-.5.5L18 11.2H6l-2.2-6.2c-.2-.6-.9-.9-1.4-.6-.2.1-.4.3-.5.5L.4 9.6c-.3.8 0 1.7.7 2.2l10.5 7.6c.3.2.7.2 1 0l10.3-7.6c.7-.5 1-1.4.7-2.2z" />
+                  </svg>
+                  <span>GitLab CI/CD</span>
+                </span>
+                <span className="text-[10px] font-mono text-orange-300 bg-orange-950/60 px-2 py-0.5 rounded border border-orange-800/60 truncate max-w-[120px]">
+                  {glProject}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                GitLab CI پائپ لائن، .gitlab-ci.yml اور خودکار آرٹیکٹ۔
+              </p>
+              <div className="pt-1 flex items-center gap-2">
+                {onPushGitLab && (
+                  <button
+                    onClick={onPushGitLab}
+                    className="bg-orange-600 hover:bg-orange-500 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                  >
+                    <Send className="w-3 h-3" />
+                    <span>Push GitLab</span>
+                  </button>
+                )}
+                <a
+                  href={glPipelinesUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-slate-300 hover:text-white bg-slate-900 border border-slate-800 text-[11px] px-3 py-1.5 rounded-lg font-mono"
+                >
+                  پائپ لائنز ↗
+                </a>
+              </div>
+            </div>
+
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-200 flex items-center gap-2">
                   <Globe className="w-4 h-4 text-sky-400" />
-                  <span>GitHub Pages Live Website</span>
+                  <span>Live Web & Releases</span>
                 </span>
                 <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">
                   Live Web Page
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                ویب پیج اور APK ڈاؤنلوڈ پیج کو لائیو رکھنے کے لیے۔
+                لائیو ویب پیج اور APK ڈاؤنلوڈ پیج تک رسائی۔
               </p>
               <div className="pt-1 flex items-center gap-2">
                 <a
@@ -275,7 +330,7 @@ export const AiProjectManager: React.FC<AiProjectManagerProps> = ({
                   className="bg-sky-600 hover:bg-sky-500 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
                 >
                   <Globe className="w-3 h-3" />
-                  <span>ویب سائٹ پیج کھولیں ↗</span>
+                  <span>ویب پیج ↗</span>
                 </a>
                 <a
                   href={releasesUrl}

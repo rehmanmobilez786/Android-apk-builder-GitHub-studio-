@@ -23,6 +23,12 @@ export interface AndroidProject {
     branch: string;
     autoSync: boolean;
   };
+  gitlabProject?: {
+    projectIdOrPath: string;
+    instanceUrl: string;
+    branch: string;
+    autoSync: boolean;
+  };
 }
 
 export interface DiagnosticIssue {
@@ -89,6 +95,30 @@ export interface GitHubConfig {
   isSyncing?: boolean;
 }
 
+export interface SavedGitHubRepo {
+  id: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  label?: string;
+  description?: string;
+  isPrivate?: boolean;
+  isOld?: boolean;
+  lastUsed?: string;
+}
+
+export interface GitHubRepoItem {
+  id: number | string;
+  name: string;
+  fullName: string;
+  owner: string;
+  description?: string;
+  private: boolean;
+  htmlUrl: string;
+  defaultBranch: string;
+  updatedAt?: string;
+}
+
 export interface ProjectSnapshot {
   id: string;
   timestamp: string;
@@ -114,6 +144,26 @@ export interface GitHubSyncHistoryRecord {
   timestamp: string;
   owner: string;
   repo: string;
+  branch: string;
+  status: "success" | "failed";
+  message: string;
+}
+
+export interface GitLabConfig {
+  token: string;
+  projectIdOrPath: string; // e.g. "rehmanmobilez786/Android-apk-builder-studio" or numeric ID
+  instanceUrl: string; // default "https://gitlab.com"
+  branch: string; // default "main"
+  autoSync: boolean;
+  lastCommitSha?: string;
+  isSyncing?: boolean;
+}
+
+export interface GitLabSyncHistoryRecord {
+  id: string;
+  timestamp: string;
+  projectIdOrPath: string;
+  instanceUrl: string;
   branch: string;
   status: "success" | "failed";
   message: string;

@@ -1,12 +1,20 @@
-# Android APK Builder & Google AI Studio Assistant
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+</div>
 
-> **Live GitHub Pages URL**: [https://rehmanmobilez786.github.io/Android-apk-builder-GitHub-studio/](https://rehmanmobilez786.github.io/Android-apk-builder-GitHub-studio/)
+# Run and deploy your AI Studio app
 
-## 🚀 خصوصیات
-- **مکمل Native Android Studio پروجیکٹ**: Kotlin, SDK 34, AndroidX, Gradle 8.2
-- **GitHub Actions CI/CD Build**: خودکار Debug & Release APK جنریٹر
-- **GitHub Pages Interactive Web**: لائیو ویب انٹرفیس بغیر کسی سرور کے
-- **سیکیورٹی شیلڈ**: Zero secret leak پالیسی پروٹیکشن
+This contains everything you need to run your app locally.
 
-## 📲 APK ڈاؤنلوڈ کریں
-آپ سیدھا [GitHub Releases](https://github.com/rehmanmobilez786/Android-apk-builder-GitHub-studio/releases) یا ہوم پیج سے تازہ ترین APK ڈاؤنلوڈ کر سکتے ہیں۔
+View your app in AI Studio: https://ai.studio/apps/e62a93df-1428-4917-940d-eec885e84884
+
+## Run Locally
+
+**Prerequisites:**  Node.js
+
+
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

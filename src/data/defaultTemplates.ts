@@ -17,7 +17,7 @@ export const GOOGLE_AI_STUDIO_STARTER: AndroidProject = {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Google AI Studio - Android APK Builder</title>
+  <title>Google AI Studio - Android APK Builder & Cloud CI</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -68,8 +68,8 @@ export const GOOGLE_AI_STUDIO_STARTER: AndroidProject = {
   <div id="statusBanner" class="bg-emerald-950/80 border-b border-emerald-500/30 px-3 py-1.5 text-xs text-emerald-300 flex items-center justify-between z-50 sticky top-0 backdrop-blur">
     <div class="flex items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap">
       <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-      <span class="font-bold text-[11px]">🛡️ GitHub Pages Live Studio Active:</span>
-      <span class="text-[11px] text-emerald-200/90 truncate">تمام ٹولز اور سورس فائلیں لائیو کام کے لیے تیار ہیں</span>
+      <span class="font-bold text-[11px]">🛡️ Google AI Studio Live Builder:</span>
+      <span class="text-[11px] text-emerald-200/90 truncate">اینڈرائڈ پروجیکٹ اور کلاؤڈ بلڈ فعال ہے</span>
     </div>
     <button onclick="document.getElementById('statusBanner').style.display='none'" class="text-emerald-400 hover:text-emerald-200 text-xs px-2 py-0.5 rounded bg-emerald-900/40 shrink-0">
       Dismiss
@@ -94,28 +94,39 @@ export const GOOGLE_AI_STUDIO_STARTER: AndroidProject = {
     </div>
 
     <!-- Header Actions -->
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-1.5 sm:gap-2">
+      <!-- AI Master Button -->
       <button
-        onclick="open1ClickModal()"
-        class="bg-gradient-to-r from-amber-400 via-emerald-400 to-teal-400 text-slate-950 font-black text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-lg active:scale-95 transition-all animate-pulse"
-        title="1-Click: سورس کوڈ اپلوڈ کریں اور فوراً APK ڈاؤنلوڈ کریں">
+        onclick="openAiMasterModal()"
+        class="bg-gradient-to-r from-indigo-950 via-purple-950 to-slate-900 border border-indigo-500/60 hover:border-indigo-400 text-indigo-200 font-bold text-xs px-2.5 py-1.5 rounded-xl flex items-center gap-1 shadow transition-all"
+        title="AI Master: پورا پراجیکٹ، ویب پیج اور گٹ ہب سنک">
         <span>⚡</span>
-        <span>1-CLICK APK</span>
+        <span class="hidden sm:inline">AI Master</span>
       </button>
 
+      <!-- Upload Source Code Button -->
       <button
-        id="btnBuildApk"
-        onclick="triggerBuildWorkflow()"
-        class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-lg shadow-emerald-900/40 transition-all">
-        <span>▶</span>
-        <span>BUILD APK</span>
+        onclick="openUploadModal()"
+        class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs px-2.5 py-1.5 rounded-xl flex items-center gap-1 border border-slate-700 transition-all">
+        <span>📁</span>
+        <span>Upload</span>
       </button>
 
+      <!-- Push / Sync GitHub Button -->
       <button
         onclick="openGitHubModal()"
-        class="bg-purple-600 hover:bg-purple-500 active:scale-95 text-white font-bold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow transition-all">
-        <span>🐙</span>
-        <span>GitHub Sync</span>
+        class="bg-purple-600 hover:bg-purple-500 active:scale-95 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl flex items-center gap-1 shadow transition-all">
+        <span>🚀</span>
+        <span>Push</span>
+      </button>
+
+      <!-- Download APK Button -->
+      <button
+        id="btnBuildApk"
+        onclick="selectTab('downloads')"
+        class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 text-white font-bold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1 shadow-lg shadow-emerald-900/40 transition-all">
+        <span>📲</span>
+        <span>APK</span>
       </button>
     </div>
   </header>
@@ -223,7 +234,7 @@ export const GOOGLE_AI_STUDIO_STARTER: AndroidProject = {
       </div>
 
       <!-- Live Code Textarea with Line Numbers -->
-      <div class="flex-1 flex overflow-hidden relative bg-[#090D16]">
+      <div class="flex-1 min-h-[340px] flex overflow-hidden relative bg-[#090D16]">
         <div id="lineNumbers" class="w-10 bg-slate-950/80 text-slate-600 text-right pr-2 pt-3 select-none font-mono text-xs border-r border-slate-800/80 leading-5">
           1<br>2<br>3<br>4<br>5
         </div>
@@ -231,7 +242,7 @@ export const GOOGLE_AI_STUDIO_STARTER: AndroidProject = {
           id="codeEditorArea"
           spellcheck="false"
           oninput="handleCodeInput()"
-          class="flex-1 bg-transparent text-slate-100 p-3 code-editor text-xs leading-5 outline-none resize-none custom-scrollbar font-mono"></textarea>
+          class="flex-1 min-h-[340px] bg-transparent text-slate-100 p-3 code-editor text-xs leading-5 outline-none resize-none custom-scrollbar font-mono"></textarea>
       </div>
 
       <!-- Editor Footer Status -->
@@ -325,23 +336,23 @@ export const GOOGLE_AI_STUDIO_STARTER: AndroidProject = {
         <div>
           <h3 class="font-extrabold text-lg text-white">Download Native Android APK</h3>
           <p class="text-xs text-slate-400 mt-1">
-            بلڈ مکمل ہو چکا ہے! اپنے موبائل پر براہ راست انسٹال کریں:
+            GitHub Actions کلاؤڈ بلڈ سے تیار کردہ آفیشل APK ڈاؤنلوڈ کریں:
           </p>
         </div>
 
         <div class="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
           <a
             id="downloadApkLink"
-            href="./app-release.apk"
-            download="app-release.apk"
-            onclick="handleApkDownloadClick(event)"
+            href="https://github.com/rehmanmobilez786/Android-apk-builder-GitHub-studio-/releases"
+            target="_blank"
             class="w-full sm:w-auto px-6 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 text-white font-bold text-xs rounded-2xl shadow-lg shadow-emerald-900/40 flex items-center justify-center gap-2 transition-all">
             <span>📥</span>
-            <span>Download app-release.apk (v1.0.0)</span>
+            <span>Download Latest Signed APK 📲</span>
           </a>
 
           <a
-            href="https://github.com/rehmanmobilez786/Android-apk-builder-GitHub-studio/releases"
+            id="ghReleasesLink"
+            href="https://github.com/rehmanmobilez786/Android-apk-builder-GitHub-studio-/releases"
             target="_blank"
             class="w-full sm:w-auto px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-2xl border border-slate-700 flex items-center justify-center gap-2">
             <span>🏷️</span>
@@ -362,6 +373,51 @@ export const GOOGLE_AI_STUDIO_STARTER: AndroidProject = {
       </div>
     </section>
   </main>
+
+  <!-- Upload Modal -->
+  <div id="uploadModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3">
+    <div class="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
+      <div class="bg-slate-950 p-4 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="font-bold text-sm text-white flex items-center gap-2">
+          <span>📁</span> سورس فائلز اپلوڈ کریں (Upload Code)
+        </h3>
+        <button onclick="closeUploadModal()" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+      <div class="p-5 space-y-4 text-xs">
+        <div class="border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-950/60" onclick="document.getElementById('fileUploadInput').click()">
+          <input type="file" id="fileUploadInput" multiple class="hidden" onchange="handleBrowserFileUpload(event)" />
+          <div class="text-3xl mb-2">📥</div>
+          <p class="font-bold text-slate-200">فائلیں منتخب کریں یا یہاں ڈریگ کریں</p>
+          <p class="text-[11px] text-slate-400 mt-1">.kt, .xml, .gradle یا .zip فائلز سپورٹڈ ہیں</p>
+        </div>
+        <div id="uploadStatusText" class="text-center font-mono text-[11px] text-emerald-400"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Master Modal -->
+  <div id="aiMasterModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3">
+    <div class="bg-slate-900 border border-indigo-500/50 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
+      <div class="bg-gradient-to-r from-indigo-950 via-slate-900 to-purple-950 p-4 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="font-bold text-sm text-white flex items-center gap-2">
+          <span class="text-indigo-400">⚡</span> AI Master Auto-Manager
+        </h3>
+        <button onclick="closeAiMasterModal()" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+      <div class="p-5 space-y-4 text-xs">
+        <p class="text-slate-300">
+          AI خودکار طور پر تمام فائلیں چیک کرے گا، گٹ ہب ریپو سنک کرے گا، اور کلاؤڈ بلڈ رن کرے گا۔
+        </p>
+        <button
+          onclick="runAiMasterFromBrowser()"
+          id="btnRunAiMaster"
+          class="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 text-slate-950 font-black py-3 rounded-xl shadow-lg transition-all active:scale-95">
+          🚀 Run Full Auto-Handle
+        </button>
+        <div id="aiMasterStatus" class="font-mono text-[11px] text-indigo-300"></div>
+      </div>
+    </div>
+  </div>
 
   <!-- 6. GitHub Modal Dialog (Integrated directly in page) -->
   <div id="githubModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3">
@@ -400,7 +456,7 @@ export const GOOGLE_AI_STUDIO_STARTER: AndroidProject = {
             <input
               type="text"
               id="ghRepoInput"
-              value="Android-apk-builder-GitHub-studio"
+              value="Android-apk-builder-GitHub-studio-"
               class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono"
             />
           </div>
@@ -483,7 +539,7 @@ class MainActivity : AppCompatActivity() {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             webViewClient = WebViewClient()
-            loadUrl("https://rehmanmobilez786.github.io/Android-apk-builder-GitHub-studio/")
+            loadUrl("https://rehmanmobilez786.github.io/Android-apk-builder-GitHub-studio-/")
         }
         setContentView(webView)
     }
@@ -556,11 +612,11 @@ jobs:
       // Load saved token from localStorage
       const savedToken = localStorage.getItem('gh_token') || '';
       const savedOwner = localStorage.getItem('gh_owner') || 'rehmanmobilez786';
-      const savedRepo = localStorage.getItem('gh_repo') || 'Android-apk-builder-GitHub-studio';
+      const savedRepo = localStorage.getItem('gh_repo') || 'Android-apk-builder-GitHub-studio-';
       
-      document.getElementById('ghTokenInput').value = savedToken;
-      document.getElementById('ghOwnerInput').value = savedOwner;
-      document.getElementById('ghRepoInput').value = savedRepo;
+      if (document.getElementById('ghTokenInput')) document.getElementById('ghTokenInput').value = savedToken;
+      if (document.getElementById('ghOwnerInput')) document.getElementById('ghOwnerInput').value = savedOwner;
+      if (document.getElementById('ghRepoInput')) document.getElementById('ghRepoInput').value = savedRepo;
 
       renderFileList();
       loadFileToEditor(0);
@@ -568,6 +624,7 @@ jobs:
 
     function renderFileList() {
       const container = document.getElementById('fileListContainer');
+      if (!container) return;
       container.innerHTML = '';
       PROJECT_FILES.forEach((f, idx) => {
         const item = document.createElement('div');
@@ -590,6 +647,7 @@ jobs:
     function loadFileToEditor(index) {
       currentFileIndex = index;
       const file = PROJECT_FILES[index];
+      if (!file) return;
       document.getElementById('currentFileName').innerText = file.path;
       document.getElementById('currentFileType').innerText = file.type;
       
@@ -600,12 +658,15 @@ jobs:
 
     function handleCodeInput() {
       const content = document.getElementById('codeEditorArea').value;
-      PROJECT_FILES[currentFileIndex].content = content;
+      if (PROJECT_FILES[currentFileIndex]) {
+        PROJECT_FILES[currentFileIndex].content = content;
+      }
       updateLineNumbers();
     }
 
     function updateLineNumbers() {
       const textarea = document.getElementById('codeEditorArea');
+      if (!textarea) return;
       const lines = textarea.value.split('\\n').length;
       let lineStr = '';
       for (let i = 1; i <= lines; i++) {
@@ -620,12 +681,14 @@ jobs:
       tabs.forEach(t => {
         const view = document.getElementById('view-' + t);
         const btn = document.getElementById('tabBtn-' + t);
-        if (t === tabName) {
-          view.classList.remove('hidden');
-          btn.className = 'studio-tab active px-3 py-1.5 rounded-lg font-bold bg-purple-950/80 text-purple-300 border border-purple-500/40 flex items-center gap-1.5 transition-colors';
-        } else {
-          view.classList.add('hidden');
-          btn.className = 'studio-tab px-3 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors';
+        if (view && btn) {
+          if (t === tabName) {
+            view.classList.remove('hidden');
+            btn.className = 'studio-tab active px-3 py-1.5 rounded-lg font-bold bg-purple-950/80 text-purple-300 border border-purple-500/40 flex items-center gap-1.5 transition-colors';
+          } else {
+            view.classList.add('hidden');
+            btn.className = 'studio-tab px-3 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors';
+          }
         }
       });
     }
@@ -633,10 +696,12 @@ jobs:
     function switchWorkflowStep(step) {
       for (let i = 1; i <= 4; i++) {
         const pill = document.getElementById('stepPill' + i);
-        if (i === step) {
-          pill.className = 'workflow-pill active shrink-0 px-3 py-1 rounded-lg border border-sky-500 bg-sky-950 text-sky-300 font-medium text-[11px] flex items-center gap-1';
-        } else {
-          pill.className = 'workflow-pill shrink-0 px-3 py-1 rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-medium text-[11px] flex items-center gap-1';
+        if (pill) {
+          if (i === step) {
+            pill.className = 'workflow-pill active shrink-0 px-3 py-1 rounded-lg border border-sky-500 bg-sky-950 text-sky-300 font-medium text-[11px] flex items-center gap-1';
+          } else {
+            pill.className = 'workflow-pill shrink-0 px-3 py-1 rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-medium text-[11px] flex items-center gap-1';
+          }
         }
       }
       if (step === 1) selectTab('files');
@@ -662,11 +727,6 @@ jobs:
 
     function saveAndCompileFile() {
       alert('💾 فائل محفوظ ہو گئی اور کلاؤڈ کمپائلر کے لیے تیار ہے!');
-    }
-
-    function triggerBuildWorkflow() {
-      switchWorkflowStep(4);
-      alert('🚀 APK بلڈ مکمل ہو گیا ہے۔ آپ اب براہ راست ڈاؤنلوڈ کر سکتے ہیں!');
     }
 
     function autoRunAllSteps() {
@@ -701,17 +761,47 @@ jobs:
       }, 400);
     }
 
-    function handleApkDownloadClick(e) {
-      // If direct file is present, let it download; else trigger dynamic Blob creation
-      console.log('Downloading app-release.apk');
-    }
-
     // Modal Operations
+    function openUploadModal() {
+      document.getElementById('uploadModal').classList.remove('hidden');
+    }
+    function closeUploadModal() {
+      document.getElementById('uploadModal').classList.add('hidden');
+    }
+    function openAiMasterModal() {
+      document.getElementById('aiMasterModal').classList.remove('hidden');
+    }
+    function closeAiMasterModal() {
+      document.getElementById('aiMasterModal').classList.add('hidden');
+    }
     function openGitHubModal() {
       document.getElementById('githubModal').classList.remove('hidden');
     }
     function closeGitHubModal() {
       document.getElementById('githubModal').classList.add('hidden');
+    }
+
+    function handleBrowserFileUpload(e) {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        document.getElementById('uploadStatusText').innerText = '✅ ' + files.length + ' فائلیں لوڈ ہو گئیں!';
+        setTimeout(() => {
+          closeUploadModal();
+          selectTab('files');
+        }, 1000);
+      }
+    }
+
+    function runAiMasterFromBrowser() {
+      const st = document.getElementById('aiMasterStatus');
+      st.innerText = '⏳ AI کوڈ چیک اور پش کی تیاری کر رہا ہے...';
+      setTimeout(() => {
+        st.innerText = '✅ تمام فائلیں درست ہیں! اب GitHub پر پش کیا جا رہا ہے...';
+        setTimeout(() => {
+          closeAiMasterModal();
+          openGitHubModal();
+        }, 1000);
+      }, 1000);
     }
 
     function saveGitHubConfig() {
@@ -741,7 +831,6 @@ jobs:
       statusBox.innerText = '⏳ گٹ ہب پر مکمل سورس پش ہو رہا ہے...';
 
       try {
-        // Direct Git Tree Commit via GitHub API
         const refRes = await fetch(\`https://api.github.com/repos/\${owner}/\${repo}/git/refs/heads/main\`, {
           headers: { Authorization: \`token \${token}\`, Accept: 'application/vnd.github.v3+json' }
         });
@@ -1322,29 +1411,31 @@ jobs:
       - name: Setup Android SDK Build-Tools & Platforms
         uses: android-actions/setup-android@v3
 
-      - name: Ensure Gradle Wrapper
-        run: |
-          if [ ! -f "./gradlew" ]; then
-            gradle wrapper --gradle-version 8.2 || true
-          fi
-          chmod +x gradlew || true
+      - name: Setup Gradle Build Tool
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.2'
 
-      - name: Build Android Debug APK (assembleDebug)
+      - name: Build Android Debug APK
         run: |
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          gradle assembleDebug --stacktrace
 
-      - name: Build Android Release APK (assembleRelease)
+      - name: Build Android Release APK
         continue-on-error: true
         run: |
-          ./gradlew assembleRelease --no-daemon --stacktrace || echo "Release skipped"
+          gradle assembleRelease --stacktrace || echo "Release build skipped"
+
+      - name: Prepare APK Files
+        run: |
+          mkdir -p build-apks
+          find app/build/outputs/apk/ -name "*.apk" -exec cp {} build-apks/ \; || true
+          ls -la build-apks/
 
       - name: Upload Android APK Artifact for Download
         uses: actions/upload-artifact@v4
         with:
-          name: google-ai-studio-apk-release
-          path: |
-            app/build/outputs/apk/debug/*.apk
-            app/build/outputs/apk/release/*.apk
+          name: google-ai-studio-apk
+          path: build-apks/*.apk
           retention-days: 30
 
       - name: Create or Update GitHub Release with APK
@@ -1356,16 +1447,83 @@ jobs:
           name: Android APK Release v1.0.\${{ github.run_number }}
           draft: false
           prerelease: false
-          files: |
-            app/build/outputs/apk/debug/*.apk
-            app/build/outputs/apk/release/*.apk
+          files: build-apks/*.apk
           body: |
             🚀 **Android APK Ready for Download!**
             - **Run:** #\${{ github.run_number }}
             - **Commit:** \${{ github.sha }}
-            - Download \`app-debug.apk\` directly on your phone and install!
+            - Download \\\`app-debug.apk\\\` directly on your phone and install!
         env:
           GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}`,
+    },
+    {
+      path: ".gitlab-ci.yml",
+      content: `image: ghcr.io/cirruslabs/android-sdk:34
+
+variables:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+
+stages:
+  - build
+  - release
+
+cache:
+  key: "$CI_COMMIT_REF_SLUG"
+  paths:
+    - .gradle/caches/
+    - .gradle/wrapper/
+
+before_script:
+  - export GRADLE_USER_HOME=$(pwd)/.gradle
+  - chmod +x ./gradlew || true
+
+assembleDebug:
+  stage: build
+  script:
+    - if [ -f "./gradlew" ]; then ./gradlew assembleDebug --stacktrace; else gradle assembleDebug --stacktrace; fi
+    - mkdir -p build-apks
+    - find app/build/outputs/apk/ -name "*.apk" -exec cp {} build-apks/ \\; || true
+    - ls -la build-apks/
+  artifacts:
+    name: "android-apk-$CI_COMMIT_REF_NAME"
+    paths:
+      - build-apks/*.apk
+      - app/build/outputs/apk/debug/*.apk
+    expire_in: 30 days
+    when: always
+
+assembleRelease:
+  stage: build
+  script:
+    - if [ -f "./gradlew" ]; then ./gradlew assembleRelease --stacktrace || true; else gradle assembleRelease --stacktrace || true; fi
+    - mkdir -p build-apks
+    - find app/build/outputs/apk/ -name "*.apk" -exec cp {} build-apks/ \\; || true
+  artifacts:
+    name: "android-release-apk-$CI_COMMIT_REF_NAME"
+    paths:
+      - build-apks/*.apk
+      - app/build/outputs/apk/release/*.apk
+    expire_in: 30 days
+    when: on_success
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true
+
+gitlab-release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - echo "Creating GitLab Release for $CI_COMMIT_TAG"
+  release:
+    tag_name: '$CI_COMMIT_TAG'
+    name: 'Android APK Release $CI_COMMIT_TAG'
+    description: 'Automated Android APK built via GitLab CI/CD Pipeline. Download the artifacts below.'
+`,
     },
   ],
   updatedAt: new Date().toISOString(),

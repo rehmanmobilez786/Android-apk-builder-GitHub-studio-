@@ -7,6 +7,7 @@ import { PhoneEmulator } from "./components/PhoneEmulator";
 import { DragDropZone } from "./components/DragDropZone";
 import { BugFixerModal } from "./components/BugFixerModal";
 import { GitHubModal } from "./components/GitHubModal";
+import { GitLabModal } from "./components/GitLabModal";
 import { BuildConsole } from "./components/BuildConsole";
 import { AiAssistantDrawer } from "./components/AiAssistantDrawer";
 import { AiProjectManager } from "./components/AiProjectManager";
@@ -23,11 +24,13 @@ import {
   AndroidFile,
   ValidationReport,
   GitHubConfig,
+  GitLabConfig,
   BuildOutput,
   ChatMessage,
   ProjectSnapshot,
   BuildHistoryRecord,
   GitHubSyncHistoryRecord,
+  GitLabSyncHistoryRecord,
 } from "./types";
 import { validateAndroidProject, generateDefaultMissingFile } from "./utils/androidValidator";
 import { compileAndroidApk } from "./utils/apkCompilerSim";
@@ -40,6 +43,9 @@ import {
   getBuildHistory,
   saveSyncRecord,
   getSyncHistory,
+  saveGitLabSyncRecord,
+  getGitLabSyncHistory,
+  deleteGitLabSyncRecord,
   clearAllHistory,
   deleteSnapshotRecord,
   deleteBuildRecord,
@@ -48,9 +54,12 @@ import {
   saveThemePreference,
   saveGitHubConfig,
   getSavedGitHubConfig,
+  saveGitLabConfig,
+  getSavedGitLabConfig,
 } from "./utils/storageManager";
 import { directGitHubSync, directGitHubRelease, ensureCompleteAndroidProjectFiles } from "./utils/githubClient";
-import { Code2, Layout, Smartphone, Sparkles, CheckCircle, RotateCcw, ShieldCheck, FolderTree, Eye, EyeOff } from "lucide-react";
+import { directGitLabSync, directGitLabRelease } from "./utils/gitlabClient";
+import { Code2, Layout, Smartphone, Sparkles, CheckCircle, RotateCcw, ShieldCheck, FolderTree, Eye, EyeOff, Github } from "lucide-react";
 
 export default function App() {
   const [ideTheme, setIdeTheme] = useState<"dark" | "light">(getSavedTheme());
@@ -65,7 +74,29 @@ export default function App() {
 
   const [project, setProject] = useState<AndroidProject>(() => {
     const saved = loadSavedProjectState();
-    return saved.project || STARTER_PROJECT;
+    const proj = saved.project || STARTER_PROJECT;
+    const latestIndexHtml = STARTER_PROJECT.files.find((f) => f.path === "index.html");
+    const latestWorkflow = STARTER_PROJECT.files.find((f) => f.path === ".github/workflows/android-build-apk.yml");
+    let files = proj.files;
+    if (latestIndexHtml) {
+      files = files.map((f) =>
+        f.path === "index.html" &&
+        (f.content.includes("1-CLICK APK") || f.content.length < 1000 || !f.content.includes("codeEditorArea"))
+          ? latestIndexHtml
+          : f
+      );
+      if (!files.some((f) => f.path === "index.html")) {
+        files.push(latestIndexHtml);
+      }
+    }
+    if (latestWorkflow) {
+      files = files.map((f) => (f.path === ".github/workflows/android-build-apk.yml" ? latestWorkflow : f));
+      if (!files.some((f) => f.path === ".github/workflows/android-build-apk.yml")) {
+        files.push(latestWorkflow);
+      }
+    }
+    return { ...proj, files };
+    return proj;
   });
 
   const [selectedFilePath, setSelectedFilePath] = useState<string>("app/src/main/AndroidManifest.xml");
@@ -85,11 +116,13 @@ export default function App() {
   const [snapshots, setSnapshots] = useState<ProjectSnapshot[]>(getProjectSnapshots());
   const [buildHistory, setBuildHistory] = useState<BuildHistoryRecord[]>(getBuildHistory());
   const [syncHistory, setSyncHistory] = useState<GitHubSyncHistoryRecord[]>(getSyncHistory());
+  const [gitlabSyncHistory, setGitLabSyncHistory] = useState<GitLabSyncHistoryRecord[]>(getGitLabSyncHistory());
 
   // Modals
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isBugFixerOpen, setIsBugFixerOpen] = useState(false);
   const [isGithubOpen, setIsGithubOpen] = useState(false);
+  const [isGitLabOpen, setIsGitLabOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isBuildOpen, setIsBuildOpen] = useState(false);
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
@@ -100,12 +133,17 @@ export default function App() {
   const [repairSummary, setRepairSummary] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [isGitLabSyncing, setIsGitLabSyncing] = useState(false);
+  const [gitlabSyncMessage, setGitLabSyncMessage] = useState<string | null>(null);
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildOutput, setBuildOutput] = useState<BuildOutput | null>(null);
 
-  // GitHub config
+  // GitHub & GitLab configs
   const [githubConfig, setGithubConfig] = useState<GitHubConfig>(() => {
     return getSavedGitHubConfig();
+  });
+  const [gitlabConfig, setGitLabConfig] = useState<GitLabConfig>(() => {
+    return getSavedGitLabConfig();
   });
 
   // Chat
@@ -248,10 +286,23 @@ export default function App() {
       let finalFiles = updatedFiles;
 
       if (data.files && Array.isArray(data.files) && data.files.length > 0) {
-        finalFiles = data.files.map((f: AndroidFile) => ({
-          ...f,
-          isAutoGenerated: data.missingFilesFound?.includes(f.path) || newlyAddedPaths.includes(f.path),
-        }));
+        const fullIndex = STARTER_PROJECT.files.find((f) => f.path === "index.html");
+        finalFiles = data.files.map((f: AndroidFile) => {
+          if (
+            f.path === "index.html" &&
+            fullIndex &&
+            (f.content.length < 1000 || !f.content.includes("codeEditorArea"))
+          ) {
+            return fullIndex;
+          }
+          return {
+            ...f,
+            isAutoGenerated: data.missingFilesFound?.includes(f.path) || newlyAddedPaths.includes(f.path),
+          };
+        });
+        if (fullIndex && !finalFiles.some((f) => f.path === "index.html")) {
+          finalFiles.push(fullIndex);
+        }
         setProject((prev) => ({
           ...prev,
           files: finalFiles,
@@ -401,6 +452,85 @@ export default function App() {
     }
   };
 
+  // GitLab Sync & Handlers
+  const handleUpdateGitLabConfig = (newConfig: GitLabConfig) => {
+    setGitLabConfig(newConfig);
+    saveGitLabConfig(newConfig);
+    setGitLabSyncMessage("✅ گٹ لیب کی ترتیبات محفوظ ہو گئی ہیں! (GitLab Configuration Saved)");
+  };
+
+  const triggerGitLabSyncSilent = async () => {
+    try {
+      if (!gitlabConfig.token || !gitlabConfig.projectIdOrPath) return;
+      await directGitLabSync(gitlabConfig, project.files);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const handleToggleGitLabAutoSync = () => {
+    const nextAutoSync = !gitlabConfig.autoSync;
+    const updated = { ...gitlabConfig, autoSync: nextAutoSync };
+    setGitLabConfig(updated);
+    saveGitLabConfig(updated);
+    setGitLabSyncMessage(
+      nextAutoSync
+        ? "🟢 GitLab Auto-Update فعال کر دیا گیا ہے۔"
+        : "⚪ GitLab Auto-Update غیر فعال کر دیا گیا ہے۔"
+    );
+  };
+
+  useEffect(() => {
+    if (!gitlabConfig.autoSync || !gitlabConfig.token || !gitlabConfig.projectIdOrPath) return;
+    const timer = setTimeout(() => {
+      triggerGitLabSyncSilent();
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, [project.files, gitlabConfig.autoSync]);
+
+  const handleGitLabSyncNow = async () => {
+    setIsGitLabSyncing(true);
+    setGitLabSyncMessage(null);
+    try {
+      const completeFiles = ensureCompleteAndroidProjectFiles(project.files);
+      if (completeFiles.length !== project.files.length) {
+        const updatedProj = { ...project, files: completeFiles };
+        setProject(updatedProj);
+        saveCurrentProjectState(updatedProj);
+      }
+
+      const result = await directGitLabSync(gitlabConfig, completeFiles);
+      setGitLabSyncMessage(result.message);
+
+      const record = saveGitLabSyncRecord({
+        instanceUrl: gitlabConfig.instanceUrl || "https://gitlab.com",
+        projectIdOrPath: gitlabConfig.projectIdOrPath || "rehmanmobilez786/Android-apk-builder-studio",
+        branch: gitlabConfig.branch || "main",
+        status: result.success ? "success" : "failed",
+        message: result.message,
+      });
+      setGitLabSyncHistory((prev) => [record, ...prev]);
+    } catch (e: any) {
+      setGitLabSyncMessage("❌ Failed to sync to GitLab: " + (e.message || e));
+    } finally {
+      setIsGitLabSyncing(false);
+    }
+  };
+
+  const handleCreateGitLabRelease = async (tagName: string, notes: string) => {
+    try {
+      const result = await directGitLabRelease(gitlabConfig, tagName, notes);
+      setGitLabSyncMessage(result.message);
+    } catch (e: any) {
+      setGitLabSyncMessage("❌ GitLab release creation failed: " + (e.message || e));
+    }
+  };
+
+  const handleDeleteGitLabSyncItem = (id: string) => {
+    deleteGitLabSyncRecord(id);
+    setGitLabSyncHistory((prev) => prev.filter((item) => item.id !== id));
+  };
+
   // Build APK Trigger
   const handleStartBuild = async () => {
     setWorkflowStep(4);
@@ -526,6 +656,7 @@ export default function App() {
         project={project}
         validationReport={validationReport}
         githubConfig={githubConfig}
+        gitlabConfig={gitlabConfig}
         onOpenUpload={() => {
           setWorkflowStep(1);
           setIsUploadOpen(true);
@@ -536,6 +667,8 @@ export default function App() {
         }}
         onOpenGitHub={() => setIsGithubOpen(true)}
         onPushGitHub={handleSyncNow}
+        onOpenGitLab={() => setIsGitLabOpen(true)}
+        onPushGitLab={handleGitLabSyncNow}
         onOpenHistory={() => setIsHistoryOpen(true)}
         onStartBuild={() => {
           setWorkflowStep(4);
@@ -577,6 +710,9 @@ export default function App() {
         onPushGitHub={handleSyncNow}
         onOpenGitHub={() => setIsGithubOpen(true)}
         githubRepo={{ owner: githubConfig.owner, repo: githubConfig.repo }}
+        onPushGitLab={handleGitLabSyncNow}
+        onOpenGitLab={() => setIsGitLabOpen(true)}
+        gitlabConfig={gitlabConfig}
         onOpenBuildConsole={() => {
           setWorkflowStep(5);
           setIsBuildOpen(true);
@@ -815,6 +951,19 @@ export default function App() {
         syncMessage={syncMessage}
         projectFilesCount={project.files.length}
         onReloadFullProject={handleReloadFullProject}
+        onImportFiles={handleFilesImported}
+      />
+
+      <GitLabModal
+        isOpen={isGitLabOpen}
+        onClose={() => setIsGitLabOpen(false)}
+        config={gitlabConfig}
+        onUpdateConfig={handleUpdateGitLabConfig}
+        onSyncNow={handleGitLabSyncNow}
+        onCreateRelease={handleCreateGitLabRelease}
+        isSyncing={isGitLabSyncing}
+        syncMessage={gitlabSyncMessage}
+        projectFilesCount={project.files.length}
       />
 
       <ProjectHistoryModal
@@ -823,11 +972,13 @@ export default function App() {
         snapshots={snapshots}
         buildHistory={buildHistory}
         syncHistory={syncHistory}
+        gitlabSyncHistory={gitlabSyncHistory}
         onRestoreSnapshot={handleRestoreSnapshot}
         onClearHistory={handleClearHistory}
         onDeleteSnapshotItem={handleDeleteSnapshotItem}
         onDeleteBuildItem={handleDeleteBuildItem}
         onDeleteSyncItem={handleDeleteSyncItem}
+        onDeleteGitLabSyncItem={handleDeleteGitLabSyncItem}
         lastSavedAt={lastSavedAt}
       />
 
@@ -839,7 +990,10 @@ export default function App() {
         onRebuild={handleStartBuild}
         project={project}
         githubConfig={githubConfig}
+        gitlabConfig={gitlabConfig}
         onPushGitHub={handleSyncNow}
+        onPushGitLab={handleGitLabSyncNow}
+        onOpenGitLab={() => setIsGitLabOpen(true)}
       />
 
       <AiAssistantDrawer
@@ -855,17 +1009,46 @@ export default function App() {
         onClose={() => setIsAiManagerOpen(false)}
         project={project}
         githubConfig={githubConfig}
+        gitlabConfig={gitlabConfig}
         onPushGitHub={handleSyncNow}
+        onPushGitLab={handleGitLabSyncNow}
         onAutoRepairCode={handleRunAiFix}
         onStartBuild={handleStartBuild}
         onOpenUpload={() => setIsUploadOpen(true)}
         onUpdateFiles={(newFiles) => {
+          const fullIndex = STARTER_PROJECT.files.find((f) => f.path === "index.html");
+          const safeFiles = newFiles.map((f: AndroidFile) => {
+            if (
+              f.path === "index.html" &&
+              fullIndex &&
+              (f.content.length < 1000 || !f.content.includes("codeEditorArea"))
+            ) {
+              return fullIndex;
+            }
+            return f;
+          });
+          if (fullIndex && !safeFiles.some((f: AndroidFile) => f.path === "index.html")) {
+            safeFiles.push(fullIndex);
+          }
           setProject((prev) => ({
             ...prev,
-            files: newFiles,
+            files: safeFiles,
           }));
         }}
       />
+
+      {/* Mobile Floating Quick Button: Open GitHub Repository Manager (پرانی / نئی ریپو) */}
+      <div className="fixed bottom-4 right-4 z-40 md:hidden flex flex-col items-end gap-2">
+        <button
+          onClick={() => setIsGithubOpen(true)}
+          className="bg-gradient-to-r from-purple-700 via-indigo-600 to-purple-800 hover:from-purple-600 hover:to-indigo-500 text-white font-bold text-xs px-3.5 py-2.5 rounded-full shadow-2xl flex items-center gap-2 border border-purple-300/40 active:scale-95 transition-all"
+          title="گٹ ہب پرانی یا نئی ریپوزیٹری منتخب کریں"
+        >
+          <Github className="w-4 h-4 text-purple-200" />
+          <span>GitHub پرانی / نئی ریپو</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+        </button>
+      </div>
     </div>
   );
 }

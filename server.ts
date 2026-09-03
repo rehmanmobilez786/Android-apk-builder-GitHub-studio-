@@ -48,13 +48,15 @@ app.post("/api/ai/analyze-and-fix", async (req, res) => {
 
     const ai = getGenAI();
 
+    const origIndexHtml = files.find((f: { path: string }) => f.path === "index.html");
+
     const prompt = `You are an expert Android Developer and Senior Gradle Build Engine AI.
 Analyze the following Android application source code files provided in JSON.
 
 USER GOAL/REQUEST: ${userGoal || "Validate, repair bugs, and generate any missing essential Android project files."}
 
 EXISTING FILES IN PROJECT:
-${files.map((f: { path: string; content: string }) => `--- PATH: ${f.path} ---\n${f.content.slice(0, 1500)}`).join("\n\n")}
+${files.filter((f: { path: string }) => f.path !== "index.html").map((f: { path: string; content: string }) => `--- PATH: ${f.path} ---\n${f.content.slice(0, 1500)}`).join("\n\n")}
 
 REQUIREMENTS:
 1. Check for missing CRITICAL files for a valid Android Studio project:
@@ -71,7 +73,7 @@ REQUIREMENTS:
 4. Return a JSON object with:
    - "missingFilesFound": Array of missing file paths that were generated (e.g. ["app/src/main/AndroidManifest.xml", "res/values/strings.xml"])
    - "bugsFixed": Array of descriptions of bugs or issues fixed.
-   - "files": Array of ALL current and newly generated project files with their updated paths and full string contents.
+   - "files": Array of repaired and newly generated Android project files (Kotlin, Java, XML, Gradle, Proguard, Properties).
    - "summary": A concise summary of repair actions taken.
 
 Respond strictly in valid JSON format matching this schema:
@@ -95,6 +97,30 @@ Respond strictly in valid JSON format matching this schema:
 
     const responseText = response.text || "{}";
     const result = JSON.parse(responseText);
+
+    // Merge original files with AI repaired files, keeping index.html safe
+    const resultMap = new Map<string, { path: string; content: string }>();
+    files.forEach((f: { path: string; content: string }) => {
+      if (f.path && f.content) resultMap.set(f.path, f);
+    });
+
+    if (Array.isArray(result.files)) {
+      result.files.forEach((rf: { path: string; content: string }) => {
+        // Do not let AI replace index.html with a truncated fragment
+        if (rf.path === "index.html" && rf.content.length < 500) {
+          return;
+        }
+        if (rf.path && rf.content) {
+          resultMap.set(rf.path, rf);
+        }
+      });
+    }
+
+    if (origIndexHtml && (!resultMap.has("index.html") || (resultMap.get("index.html")?.content.length || 0) < 500)) {
+      resultMap.set("index.html", origIndexHtml);
+    }
+
+    result.files = Array.from(resultMap.values());
     res.json(result);
   } catch (error: any) {
     console.error("AI Analyze and Fix error:", error);
@@ -216,7 +242,156 @@ app.post("/api/github/create-release", async (req, res) => {
   }
 });
 
-// 6. AI Interactive Chat Assistant Endpoint
+// 6. GitLab Sync & Deploy Proxy Endpoint
+app.post("/api/gitlab/sync", async (req, res) => {
+  try {
+    const {
+      token,
+      projectIdOrPath,
+      instanceUrl = "https://gitlab.com",
+      branch = "main",
+      message = "Auto-sync from APK Builder",
+      files,
+    } = req.body;
+
+    if (!token || !projectIdOrPath || !files) {
+      res.status(400).json({ error: "Missing required GitLab parameters (token, projectIdOrPath, files)." });
+      return;
+    }
+
+    const cleanInstance = instanceUrl.trim().replace(/\/+$/, "");
+    let cleanProject = projectIdOrPath.trim().replace(/^\/+|\/+$/g, "");
+    const encodedProject = encodeURIComponent(cleanProject);
+
+    // 1. Check user/project access
+    const projectRes = await fetch(`${cleanInstance}/api/v4/projects/${encodedProject}`, {
+      headers: {
+        "PRIVATE-TOKEN": token.trim(),
+        Accept: "application/json",
+      },
+    });
+
+    if (!projectRes.ok) {
+      res.status(projectRes.status).json({
+        error: `GitLab Project access failed (${projectRes.status}): ${projectRes.statusText}`,
+      });
+      return;
+    }
+
+    const projectData = await projectRes.json();
+
+    // 2. Query tree to find existing files
+    let existingPaths = new Set<string>();
+    try {
+      const treeRes = await fetch(
+        `${cleanInstance}/api/v4/projects/${encodedProject}/repository/tree?ref=${branch}&recursive=true&per_page=100`,
+        { headers: { "PRIVATE-TOKEN": token.trim() } }
+      );
+      if (treeRes.ok) {
+        const treeItems = await treeRes.json();
+        if (Array.isArray(treeItems)) {
+          treeItems.forEach((t: any) => {
+            if (t.type === "blob") existingPaths.add(t.path);
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Could not query existing GitLab tree", e);
+    }
+
+    // 3. Prepare atomic actions
+    const actions = files.map((f: any) => ({
+      action: existingPaths.has(f.path) ? "update" : "create",
+      file_path: f.path,
+      content: f.content,
+    }));
+
+    const commitRes = await fetch(`${cleanInstance}/api/v4/projects/${encodedProject}/repository/commits`, {
+      method: "POST",
+      headers: {
+        "PRIVATE-TOKEN": token.trim(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        branch,
+        commit_message: message,
+        actions,
+      }),
+    });
+
+    if (!commitRes.ok) {
+      const errData = await commitRes.json().catch(() => ({ message: commitRes.statusText }));
+      res.status(commitRes.status).json({
+        error: errData.message || "GitLab Commit failed.",
+      });
+      return;
+    }
+
+    const commitData = await commitRes.json();
+    const projectWebUrl = projectData.web_url || `${cleanInstance}/${cleanProject}`;
+    const pipelinesUrl = `${projectWebUrl}/-/pipelines`;
+
+    res.json({
+      success: true,
+      message: `Successfully synchronized ${files.length} files to GitLab project ${cleanProject}`,
+      commitSha: commitData.id,
+      projectUrl: projectWebUrl,
+      pipelinesUrl,
+      branch,
+    });
+  } catch (error: any) {
+    console.error("GitLab sync error:", error);
+    res.status(500).json({ error: error.message || "GitLab Sync failed." });
+  }
+});
+
+// 7. GitLab Create Release Proxy Endpoint
+app.post("/api/gitlab/create-release", async (req, res) => {
+  try {
+    const {
+      token,
+      projectIdOrPath,
+      instanceUrl = "https://gitlab.com",
+      tagName = "v1.0.0",
+      branch = "main",
+      notes = "Generated Android APK Release",
+    } = req.body;
+
+    if (!token || !projectIdOrPath) {
+      res.status(400).json({ error: "Missing token or projectIdOrPath." });
+      return;
+    }
+
+    const cleanInstance = instanceUrl.trim().replace(/\/+$/, "");
+    const cleanProject = projectIdOrPath.trim().replace(/^\/+|\/+$/g, "");
+    const encodedProject = encodeURIComponent(cleanProject);
+
+    const releaseRes = await fetch(`${cleanInstance}/api/v4/projects/${encodedProject}/releases`, {
+      method: "POST",
+      headers: {
+        "PRIVATE-TOKEN": token.trim(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tag_name: tagName,
+        ref: branch,
+        name: `Android APK Release ${tagName}`,
+        description: notes,
+      }),
+    });
+
+    const releaseData = await releaseRes.json().catch(() => ({}));
+    res.json({
+      success: releaseRes.ok,
+      releaseUrl: `${cleanInstance}/${cleanProject}/-/releases`,
+      data: releaseData,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to create GitLab release." });
+  }
+});
+
+// 8. AI Interactive Chat Assistant Endpoint
 app.post("/api/ai/chat", async (req, res) => {
   try {
     const { messages, currentFiles } = req.body;

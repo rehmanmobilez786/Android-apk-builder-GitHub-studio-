@@ -3,12 +3,19 @@ import {
   ProjectSnapshot,
   BuildHistoryRecord,
   GitHubSyncHistoryRecord,
+  GitLabConfig,
+  GitLabSyncHistoryRecord,
+  SavedGitHubRepo,
 } from "../types";
+
+const SAVED_OLD_REPOS_KEY = "apk_builder_saved_old_repos";
 
 const CURRENT_PROJECT_KEY = "apk_builder_current_project";
 const SNAPSHOTS_KEY = "apk_builder_snapshots";
 const BUILD_HISTORY_KEY = "apk_builder_build_history";
 const SYNC_HISTORY_KEY = "apk_builder_sync_history";
+const GITLAB_SYNC_HISTORY_KEY = "apk_builder_gitlab_sync_history";
+const GITLAB_CONFIG_KEY = "apk_builder_gitlab_config";
 const LAST_SAVED_TIME_KEY = "apk_builder_last_saved_time";
 const THEME_PREFERENCE_KEY = "apk_builder_theme_mode";
 
@@ -251,11 +258,210 @@ export function getSavedGitHubConfig(): any {
   };
 }
 
+export const DEFAULT_PRESET_OLD_REPOS: SavedGitHubRepo[] = [
+  {
+    id: "preset-1",
+    owner: "rehmanmobilez786",
+    repo: "Android-apk-builder-GitHub-studio-",
+    branch: "main",
+    label: "rehmanmobilez786/Android-apk-builder-GitHub-studio- (اصلی پرانی ریپو)",
+    description: "Original Android APK Studio Project with GitHub Actions CI",
+    isOld: true,
+  },
+  {
+    id: "preset-2",
+    owner: "rehmanmobilez786",
+    repo: "Android-apk-builder-GitHub-studio",
+    branch: "main",
+    label: "rehmanmobilez786/Android-apk-builder-GitHub-studio (متبادل ریپو)",
+    description: "Alternative repository without trailing hyphen",
+    isOld: true,
+  },
+  {
+    id: "preset-3",
+    owner: "safdarali789",
+    repo: "android-apk-builder-studio",
+    branch: "main",
+    label: "safdarali789/android-apk-builder-studio",
+    description: "Previous project repository",
+    isOld: true,
+  },
+];
+
+export function getSavedOldRepos(): SavedGitHubRepo[] {
+  try {
+    const raw = localStorage.getItem(SAVED_OLD_REPOS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to get saved old repos", err);
+  }
+  return DEFAULT_PRESET_OLD_REPOS;
+}
+
+export function saveOldRepo(item: Omit<SavedGitHubRepo, "id" | "lastUsed">): SavedGitHubRepo[] {
+  try {
+    const current = getSavedOldRepos();
+    const cleanOwner = item.owner.trim().replace(/^@/, "");
+    const cleanRepo = item.repo.trim();
+
+    // Check if already exists, update it, else prepend
+    const existingIndex = current.findIndex(
+      (r) => r.owner.toLowerCase() === cleanOwner.toLowerCase() && r.repo.toLowerCase() === cleanRepo.toLowerCase()
+    );
+
+    const newRecord: SavedGitHubRepo = {
+      ...item,
+      owner: cleanOwner,
+      repo: cleanRepo,
+      id: existingIndex >= 0 ? current[existingIndex].id : `repo-${Date.now()}`,
+      lastUsed: new Date().toISOString(),
+      isOld: true,
+    };
+
+    let updated: SavedGitHubRepo[];
+    if (existingIndex >= 0) {
+      updated = [...current];
+      updated[existingIndex] = newRecord;
+    } else {
+      updated = [newRecord, ...current].slice(0, 25);
+    }
+
+    localStorage.setItem(SAVED_OLD_REPOS_KEY, JSON.stringify(updated));
+    return updated;
+  } catch (err) {
+    console.warn("Failed to save old repo", err);
+    return getSavedOldRepos();
+  }
+}
+
+export function deleteOldRepo(id: string): SavedGitHubRepo[] {
+  try {
+    const current = getSavedOldRepos();
+    const updated = current.filter((r) => r.id !== id);
+    localStorage.setItem(SAVED_OLD_REPOS_KEY, JSON.stringify(updated));
+    return updated;
+  } catch (err) {
+    console.warn("Failed to delete old repo", err);
+    return getSavedOldRepos();
+  }
+}
+
+export function saveGitLabConfig(config: GitLabConfig): void {
+  try {
+    let cleanProject = (config?.projectIdOrPath || "").trim();
+    let cleanInstance = (config?.instanceUrl || "https://gitlab.com").trim();
+
+    // Sanitize project URL if full url pasted
+    if (cleanProject.includes("http://") || cleanProject.includes("https://")) {
+      try {
+        const urlObj = new URL(cleanProject);
+        cleanInstance = `${urlObj.protocol}//${urlObj.host}`;
+        cleanProject = urlObj.pathname.replace(/^\//, "").replace(/\.git$/, "").replace(/\/$/, "");
+      } catch (e) {
+        // fallback
+      }
+    }
+
+    cleanProject = cleanProject.replace(/^\/+|\/+$/g, "");
+    cleanInstance = cleanInstance.replace(/\/+$/, "");
+
+    const sanitized: GitLabConfig = {
+      token: (config.token || "").trim(),
+      projectIdOrPath: cleanProject || "rehmanmobilez786/Android-apk-builder-studio",
+      instanceUrl: cleanInstance || "https://gitlab.com",
+      branch: (config.branch || "main").trim(),
+      autoSync: Boolean(config.autoSync),
+      lastCommitSha: config.lastCommitSha,
+      isSyncing: config.isSyncing,
+    };
+
+    localStorage.setItem(GITLAB_CONFIG_KEY, JSON.stringify(sanitized));
+  } catch (err) {
+    console.warn("Failed to save GitLab config", err);
+  }
+}
+
+export function getSavedGitLabConfig(): GitLabConfig {
+  try {
+    const raw = localStorage.getItem(GITLAB_CONFIG_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        token: parsed.token || "",
+        projectIdOrPath: parsed.projectIdOrPath || "rehmanmobilez786/Android-apk-builder-studio",
+        instanceUrl: parsed.instanceUrl || "https://gitlab.com",
+        branch: parsed.branch || "main",
+        autoSync: Boolean(parsed.autoSync),
+        lastCommitSha: parsed.lastCommitSha,
+      };
+    }
+  } catch (err) {
+    console.warn("Failed to get saved GitLab config", err);
+  }
+  return {
+    token: "",
+    projectIdOrPath: "rehmanmobilez786/Android-apk-builder-studio",
+    instanceUrl: "https://gitlab.com",
+    branch: "main",
+    autoSync: false,
+  };
+}
+
+export function saveGitLabSyncRecord(
+  record: Omit<GitLabSyncHistoryRecord, "id" | "timestamp">
+): GitLabSyncHistoryRecord {
+  const fullRecord: GitLabSyncHistoryRecord = {
+    ...record,
+    id: `gl-sync-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    const existing = getGitLabSyncHistory();
+    const updated = [fullRecord, ...existing].slice(0, 30);
+    localStorage.setItem(GITLAB_SYNC_HISTORY_KEY, JSON.stringify(updated));
+  } catch (err) {
+    console.warn("Failed to save GitLab sync record", err);
+  }
+
+  return fullRecord;
+}
+
+export function getGitLabSyncHistory(): GitLabSyncHistoryRecord[] {
+  try {
+    const raw = localStorage.getItem(GITLAB_SYNC_HISTORY_KEY);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch (err) {
+    console.warn("Failed to get GitLab sync history", err);
+  }
+  return [];
+}
+
+export function deleteGitLabSyncRecord(id: string): GitLabSyncHistoryRecord[] {
+  try {
+    const existing = getGitLabSyncHistory();
+    const updated = existing.filter((item) => item.id !== id);
+    localStorage.setItem(GITLAB_SYNC_HISTORY_KEY, JSON.stringify(updated));
+    return updated;
+  } catch (err) {
+    console.warn("Failed to delete GitLab sync record", err);
+    return getGitLabSyncHistory();
+  }
+}
+
 export function clearAllHistory(): void {
   try {
     localStorage.removeItem(SNAPSHOTS_KEY);
     localStorage.removeItem(BUILD_HISTORY_KEY);
     localStorage.removeItem(SYNC_HISTORY_KEY);
+    localStorage.removeItem(GITLAB_SYNC_HISTORY_KEY);
   } catch (err) {
     console.warn("Failed to clear history", err);
   }
