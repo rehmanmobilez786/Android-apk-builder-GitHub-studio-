@@ -1,0 +1,65 @@
+image: ghcr.io/cirruslabs/android-sdk:34
+
+variables:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+
+stages:
+  - build
+  - release
+
+cache:
+  key: "$CI_COMMIT_REF_SLUG"
+  paths:
+    - .gradle/caches/
+    - .gradle/wrapper/
+
+before_script:
+  - export GRADLE_USER_HOME=$(pwd)/.gradle
+  - chmod +x ./gradlew || true
+
+assembleDebug:
+  stage: build
+  script:
+    - if [ -f "./gradlew" ]; then ./gradlew assembleDebug --stacktrace; else gradle assembleDebug --stacktrace; fi
+    - mkdir -p build-apks
+    - find app/build/outputs/apk/ -name "*.apk" -exec cp {} build-apks/ \; || true
+    - ls -la build-apks/
+  artifacts:
+    name: "android-apk-$CI_COMMIT_REF_NAME"
+    paths:
+      - build-apks/*.apk
+      - app/build/outputs/apk/debug/*.apk
+    expire_in: 30 days
+    when: always
+
+assembleRelease:
+  stage: build
+  script:
+    - if [ -f "./gradlew" ]; then ./gradlew assembleRelease --stacktrace || true; else gradle assembleRelease --stacktrace || true; fi
+    - mkdir -p build-apks
+    - find app/build/outputs/apk/ -name "*.apk" -exec cp {} build-apks/ \; || true
+  artifacts:
+    name: "android-release-apk-$CI_COMMIT_REF_NAME"
+    paths:
+      - build-apks/*.apk
+      - app/build/outputs/apk/release/*.apk
+    expire_in: 30 days
+    when: on_success
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true
+
+gitlab-release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - echo "Creating GitLab Release for $CI_COMMIT_TAG"
+  release:
+    tag_name: '$CI_COMMIT_TAG'
+    name: 'Android APK Release $CI_COMMIT_TAG'
+    description: 'Automated Android APK built via GitLab CI/CD Pipeline. Download the artifacts below.'

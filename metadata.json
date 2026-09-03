@@ -1,6 +1,11 @@
 {
-  "name": "Google AI Studio to Android APK Builder",
-  "description": "Transforms Google AI Studio source code, React/Vite web applets, and Kotlin projects into production-ready Android Studio projects and installable APK packages with GitHub Actions cloud builds.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "name": "Google AI Studio Assistant",
+  "description": "Full-featured Gemini-powered AI Assistant built in Google AI Studio and converted to Native Android APK with offline web bundle and camera support.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
